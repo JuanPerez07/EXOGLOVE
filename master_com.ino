@@ -36,12 +36,9 @@ void setup() {
     }
     pinMode(LED, OUTPUT);
 }
-String readButtons(const int pin){
-    int st = digitalRead(pin);
-    String str = "";
-    if (st == LOW)
-      str = COMMANDS[PIN_RS_CLOSE - pin];
-    return str;
+// returns a single bit, 1 if the button is ON (LOW) and 0 if the button is OFF (HIGH)
+String readButtons(const int pin) {
+    return digitalRead(pin) == LOW ? "1" : "0";
 }
 void loop() {
     // Try to find the slave device
