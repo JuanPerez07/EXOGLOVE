@@ -21,13 +21,18 @@ BLECharacteristic txCharacteristic("6E400003-B5A3-F393-E0A9-E50E24DCCA9E",
                                    BLENotify, 512);
 // define led freq
 //static const int freq = 5; // Hz
+// array of button pins
+//const int button_pins[MAX_CODES] = {PIN_RS_CLOSE, PIN_RS_OPEN, PIN_RS_PRON, PIN_RS_SUP};
+// array of led pins
+const int led_pins[MAX_CODES] = {PIN_LED_CLOSE, PIN_LED_OPEN, PIN_LED_PRON, PIN_LED_SUP};
 // array of led states
 bool led_state[MAX_CODES] = {false,false,false,false}; // Close, Open, Pron, Supi
-// COMMANDS
+// COMMANDS (START and STOP could be added)
 const String grasp_str = "CLOSE";
 const String open_str = "OPEN";
 const String pron_str = "PRON";
 const String sup_str = "SUPI";
+const String STOP = "STOP";
 // array of possible codes
 const String codes[MAX_CODES] = {grasp_str, open_str, pron_str, sup_str};
 // id of the last action
@@ -63,16 +68,11 @@ void setup() {
     Serial.println("BLE UART Ready. Connect using a BLE terminal app.");  // Print status message
     // assign freq
     //freq = 0;
-    // assign the PIN MODE
-    pinMode(PIN_LED_CLOSE, OUTPUT);
-    pinMode(PIN_LED_OPEN, OUTPUT);
-    pinMode(PIN_LED_PRON, OUTPUT);
-    pinMode(PIN_LED_SUP, OUTPUT);
-    // turn off all leds initially
-    digitalWrite(PIN_LED_CLOSE, LOW);
-    digitalWrite(PIN_LED_OPEN, LOW);
-    digitalWrite(PIN_LED_PRON, LOW);
-    digitalWrite(PIN_LED_SUP, LOW);
+    // Set LED pins as OUTPUT and switches as input pullup
+    for (int i = 0; i < MAX_CODES; i++) {
+        pinMode(led_pins[i], OUTPUT);
+        digitalWrite(led_pins[i], LOW);  // Turn off LEDs initially
+    }
 
 }
 // toggles the LED state
@@ -99,10 +99,10 @@ bool doAction(int idx){
   id = idx;
   return true;
 }
+/**/
 void loop() {
     // Wait for a BLE central device (such as a phone) to connect
     BLEDevice central = BLE.central();
-
     if (central) {  // If a device is connected
         Serial.print("Connected to: ");
         Serial.println(central.address());  // Print the MAC address of the connected device
@@ -140,4 +140,15 @@ void loop() {
         Serial.println("Disconnected.");  // Print message when the device disconnects
     }
 }
+/*
+void loop(){
+  int st = digitalRead(PIN_RS_CLOSE);
 
+  if (st == LOW){
+    digitalWrite(PIN_LED_CLOSE, HIGH);
+  }
+  else{
+    digitalWrite(PIN_LED_CLOSE, LOW);
+  }
+}
+*/
