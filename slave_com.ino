@@ -2,8 +2,8 @@
 #define PIN_LED_OPEN 23
 #define PIN_LED_PRON 22
 #define PIN_LED_SUP 21
-#define MAX_CODES 4
-#define FREQ 5 
+#define MAX_CODES 5
+#define FREQ 20 
 // this code writes the message received from the phone (works as slave)
 #include <ArduinoBLE.h>  // Include the ArduinoBLE library for Bluetooth Low Energy (BLE) functionality
 
@@ -21,22 +21,23 @@ BLECharacteristic txCharacteristic("6E400003-B5A3-F393-E0A9-E50E24DCCA9E",
                                    BLENotify, 512);
 // define led freq
 //static const int freq = 5; // Hz
-// array of button pins
-//const int button_pins[MAX_CODES] = {PIN_RS_CLOSE, PIN_RS_OPEN, PIN_RS_PRON, PIN_RS_SUP};
+
 // array of led pins
-const int led_pins[MAX_CODES] = {PIN_LED_CLOSE, PIN_LED_OPEN, PIN_LED_PRON, PIN_LED_SUP};
+const int led_pins[MAX_CODES-1] = {PIN_LED_CLOSE, PIN_LED_OPEN, PIN_LED_PRON, PIN_LED_SUP};
 // array of led states
-bool led_state[MAX_CODES] = {false,false,false,false}; // Close, Open, Pron, Supi
+bool led_state[MAX_CODES-1] = {false,false,false,false}; // Close, Open, Pron, Supi
 // COMMANDS (START and STOP could be added)
-const String grasp_str = "CLOSE";
-const String open_str = "OPEN";
-const String pron_str = "PRON";
-const String sup_str = "SUPI";
-const String STOP = "STOP";
+const String close_str = "1000";
+const String open_str = "0100";
+const String pron_str = "0010";
+const String sup_str = "0001";
+const String stop_str = "0000";
 // array of possible codes
-const String codes[MAX_CODES] = {grasp_str, open_str, pron_str, sup_str};
-// id of the last action
-static int id = -1;
+const String codes[MAX_CODES] = {stop_str, close_str, open_str, pron_str, sup_str};
+
+// id of the last action in case there was no stop state
+//static int id = -1;
+
 void setup() {
     Serial.begin(9600);  // Start the serial monitor with a baud rate of 9600
     while (!Serial);  // Wait for the Serial Monitor to open (only needed on some boards)
@@ -85,21 +86,31 @@ void toggle_led(int f, int pin_led, bool st){
 }
 // returns True if action was properly performed
 bool doAction(int idx){
-  if(idx > 3 || idx < 0) return false;
   Serial.println("Performing action...");
-  //  the idx ranges from 0 to 3
-  // 0 -> pin 24, 1-> pin 23 , 2 -> pin 22, 3 -> pin 21 
-  led_state[idx] = !led_state[idx]; // change the state of the led dir
-  if(id >= 0 ) led_state[id] = !led_state[id]; // turn OFF the last action carried
-  // iterate on each led to keep the XOR relation between actions
+  if(idx == 0){ // stop command
+    for(int i = 0; i < MAX_CODES; i++){
+      led_state[i] = LOW;
+      toggle_led(FREQ, PIN_LED_CLOSE - i, led_state[i]);
+    }
+    return true;
+  }
+  //if(id >= 0 ) led_state[id] = !led_state[id]; // turn OFF the last action carried
+  bool xor_ = false;
+  if(led_state[idx] == LOW){ // turn on
+    led_state[idx] = !led_state[idx]; // change the state of the led dir
+    xor_ = true;
+  }
+  // iterate on each led
   for(int i = 0; i < MAX_CODES; i++){
-    toggle_led(FREQ, PIN_LED_CLOSE - i, led_state[i]);
+    if(xor_ and i != idx) // keep the XOR relation between actions
+      led_state[i] = LOW;
+    toggle_led(FREQ,PIN_LED_CLOSE - i, led_state[i]); // change the state
   }
   // update last action id
-  id = idx;
+  //id = idx;
   return true;
 }
-/**/
+// MAIN LOOP
 void loop() {
     // Wait for a BLE central device (such as a phone) to connect
     BLEDevice central = BLE.central();
@@ -114,23 +125,22 @@ void loop() {
                 const uint8_t* data = rxCharacteristic.value();  // Get a pointer to the received data
                 
                 // Convert received bytes into a String
-                String receivedText = "";
+                String msg = "";
                 for (int i = 0; i < len; i++) {
-                    receivedText += (char)data[i];  // Append each byte as a character
+                    msg += (char)data[i];  // Append each byte as a character
                 }
 
                 Serial.print("Received: '");
-                Serial.print(receivedText);  // Print received data to Serial Monitor 
+                Serial.print(msg);  // Print received data to Serial Monitor 
                 Serial.println("'");
-                // check if the text is correct
+                // check if the code is correct
                 bool isOk = false;
                 for(int i = 0; i < MAX_CODES; i++)
-                  if (receivedText == codes[i])
+                  if (msg == codes[i])
                     isOk = doAction(i);
                 // feedback on the user input
                 if(!isOk){
-                  Serial.println("Wrong command!");
-                  Serial.println("Try 'CLOSE' | 'OPEN' | 'PRONE' | 'SUPI' ");
+                  Serial.println("Wrong command! Cannot perform action");
                 }
                 // Convert the String into a C-style string (null-terminated char array)
                 //txCharacteristic.writeValue(receivedText.c_str());  // Send the received data back to the phone
@@ -140,15 +150,3 @@ void loop() {
         Serial.println("Disconnected.");  // Print message when the device disconnects
     }
 }
-/*
-void loop(){
-  int st = digitalRead(PIN_RS_CLOSE);
-
-  if (st == LOW){
-    digitalWrite(PIN_LED_CLOSE, HIGH);
-  }
-  else{
-    digitalWrite(PIN_LED_CLOSE, LOW);
-  }
-}
-*/
