@@ -22,7 +22,7 @@ BLECharacteristic txCharacteristic("6E400003-B5A3-F393-E0A9-E50E24DCCA9E",
 // define led freq
 //static const int freq = 5; // Hz
 
-// array of led pins
+// array of led pins, they must use R = 220 ohms as input is 3.3v
 const int led_pins[MAX_CODES-1] = {PIN_LED_CLOSE, PIN_LED_OPEN, PIN_LED_PRON, PIN_LED_SUP};
 // array of led states
 bool led_state[MAX_CODES-1] = {false,false,false,false}; // Close, Open, Pron, Supi
