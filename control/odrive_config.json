@@ -1,0 +1,43 @@
+{
+    "axis0": {
+      "motor": {
+        "config": {
+         "pole_pairs": 7,
+         "resistance_calib_max_voltage": 2.0,
+         "torque_constant": 0.031,
+         "motor_type": 0,
+         "current_lim": 10.0,
+         "requested_current_range": 25.0,
+         "calibration_current": 5.0,
+         "current_control_bandwidth": 100.0
+        }
+      },
+      "encoder": {
+        "config": {
+          "cpr": 20480,
+          "mode": 0,
+          "calib_scan_distance": 150,
+          "pre_calibrated": false,
+          "bandwidth": 100,
+          "use_index": true
+        }
+      },
+      "controller": {
+        "config":{
+          "vel_limit": 5.0,
+          "control_mode": 3, 
+          "input_mode": 1,
+          "kp": 5,
+          "kv": 1,
+          "ki": 0
+        }
+      },
+      "requested_state": 3,
+      "startup_motor_calibration": true,
+      "startup_encoder_index_search": false,
+      "startup_encoder_offset_calibration": true,
+      "startup_closed_loop_control": true,
+      "startup_sensorless_control": false
+    }
+  }
+  
