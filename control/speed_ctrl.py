@@ -9,9 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from collections import deque
 import csv
-import warnings
-warnings.filterwarnings("ignore", message=".*frames=None.*")
-
 # Conectar con cualquier placa ODrive disponible
 print("Buscando ODrive...")
 found = False
@@ -74,7 +71,7 @@ axis.controller.config.pos_gain = ax0_ctrl_config["kp"]
 axis.controller.config.vel_gain = ax0_ctrl_config["kv"] # * axis.motor.config.torque_constant * axis.encoder.config.cpr
 axis.controller.config.vel_integrator_gain = ax0_ctrl_config["ki"] #0.1 * axis.motor.config.torque_constant * axis.encoder.config.cpr
 axis.controller.config.vel_limit = ax0_ctrl_config["vel_limit"]
-axis.controller.config.control_mode = ax0_ctrl_config["control_mode"] # Control en posicion
+axis.controller.config.control_mode = 2 # ax0_ctrl_config["control_mode"] # Control en posicion
 
 # para enviar directamente inputs de pos, vel o torque
 axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
@@ -95,98 +92,44 @@ print(f"Resultado de la calib (tiene que ser cero): {axis.motor.error}")
 if axis.motor.error != 0:
     print("Error durante calibracion del motor")
     quit()
-
-
-
-#axis.requested_state = 6 # encoder index calib
-#axis.requested_state = 7 # encoder offeset calib
-axis.requested_state = 8 # closed loop control
-print("Control lazo cerrado activado")
 """
-Send position reference to the robot
+Control en velocidad
+Leer trayectoria del perfil de csv/velocity_profile.csv 
+El .csv tiene columna de tiempo y de velocidad
+Leer velocidad en cada instante y enviar con axis.controller.input_vel
 """
-"""
-value_int = 6 # probado que es suficiente para mover el exo wrist
-print(f"Referencia posicion enviada: {value_int}")
-time.sleep(1)
-axis.controller.input_pos = value_int
-"""
-#### Abrir archivo CSV para guardar los datos
-kp = str(ax0_ctrl_config["kp"])
-kv = str(ax0_ctrl_config["kv"])  
-CSV_DIR = 'csv/'
-
-# Parámetros de la gráfica
-tiempos = deque(maxlen=300)
-posiciones = deque(maxlen=300)
-velocidades = deque(maxlen=300)
-
-fig, (ax1, ax2) = plt.subplots(2, 1)
-linea_pos, = ax1.plot([], [], 'b-', label='Posición (rev)')
-linea_vel, = ax2.plot([], [], 'r-', label='Velocidad (rev/s)')
-
-ax1.set_title("Posición en tiempo real")
-ax2.set_title("Velocidad en tiempo real")
-ax2.set_xlabel("Tiempo (s)")
-ax1.set_ylabel("Posición (rev)")
-ax2.set_ylabel("Velocidad (rev/s)")
-ax1.grid()
-ax2.grid()
-ax1.legend()
-ax2.legend()
-
-# Archivo CSV
-filename = CSV_DIR + kp + '_' + kv + '_motor_data.csv'
-csv_file = open(filename, mode='w', newline='')
-writer = csv.writer(csv_file)
-writer.writerow(['Time (s)', 'Position (revoluciones)', 'Velocity (rev/s)'])
-
-start_time = time.time()
-
-def actualizar(frame):
-    tiempo = time.time() - start_time
-    pos = axis.encoder.pos_estimate
-    vel = axis.encoder.vel_estimate
-
-    tiempos.append(tiempo)
-    posiciones.append(pos)
-    velocidades.append(vel)
-    
-    writer.writerow([tiempo, pos, vel])
-
-    linea_pos.set_data(tiempos, posiciones)
-    linea_vel.set_data(tiempos, velocidades)
-
-    ax1.set_xlim(max(0, tiempo - 10), tiempo + 1)
-    ax2.set_xlim(max(0, tiempo - 10), tiempo + 1)
-
-    ax1.set_ylim(min(posiciones, default=-1)-0.1, max(posiciones, default=1)+0.1)
-    ax2.set_ylim(min(velocidades, default=-2)-0.2, max(velocidades, default=2)+0.2)
-
-    return linea_pos, linea_vel
-
-
-
-# animate functions with time
-ani = animation.FuncAnimation(fig, actualizar, interval=100, save_count=100, cache_frame_data=False)
-plt.tight_layout()
-plt.show()
-
-
-csv_file.close()
-print(f"✅ Datos guardados en '{filename}'")
-#time.sleep(20)
-#print(f"Error tras 20 seg con lazo cerrado activo: {axis.motor.error}")
-#axis.controller.input_pos += 3 # tres vueltas
-#time.sleep(10)
-#print(f"Error tras 10 seg de enviar comando de input pos: {axis.motor.error}")
-
-"""
-# Activar modo de control de posición
+# Activar el eje en estado de control en bucle cerrado
 axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-print("🟢 Control de posición activo en axis0")
+print("Control en LAZO CERRADO ACTIVADO")
+time.sleep(5)
 
-# Puedes probar enviar una posición (por ejemplo: 10 vueltas)
-axis.controller.input_pos = 10.0
-"""
+# Cargar el perfil de velocidad desde el archivo CSV
+csv_file_path = "csv/velocity_profile.csv"
+vel_profile = []
+
+with open(csv_file_path, newline='') as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+        # Guardamos como flotantes para precisión
+        vel_profile.append((float(row['Time (s)']), float(row['Velocity (rev/s)'])))
+
+print(f"📈 Se cargaron {len(vel_profile)} puntos del perfil de velocidad")
+
+# Ejecutar el perfil de velocidad
+print("🚀 Ejecutando perfil de velocidad...")
+start_time = time.time()
+for i in range(len(vel_profile) - 1):
+    # Velocidad actual a enviar
+    velocity = vel_profile[i][1]
+    # Tiempo actual y el siguiente (para calcular cuánto esperar)
+    current_time = vel_profile[i][0]
+    next_time = vel_profile[i + 1][0]
+    delta_t = next_time - current_time
+
+    axis.controller.input_vel = velocity
+    time.sleep(delta_t)
+
+# Asegurarse de detener el motor al final
+axis.controller.input_vel = 0.0
+print("🛑 Perfil de velocidad completado.")
 
