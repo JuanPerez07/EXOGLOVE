@@ -17,11 +17,12 @@ with open(file_str, mode='r') as file:
     next(reader)  # Saltar la cabecera
     for row in reader:
         time_data.append(float(row[0]))  # Tiempo
-        #position_data.append(float(row[1]))  # Posición
-        velocity_data.append(float(row[1]))  # Velocidad
+        position_data.append(float(row[1]))  # Posición
+        velocity_data.append(float(row[2]))  # Velocidad
 
 # Crear las gráficas
 plt.figure(figsize=(10, 6))
+"""
 """
 # Gráfica de la posición
 plt.subplot(2, 1, 1)
@@ -34,7 +35,7 @@ plt.legend()
 
 # Gráfica de la velocidad
 plt.subplot(2, 1, 2)
-"""
+
 plt.plot(time_data, velocity_data, label='Velocidad (rev/s)', color='r')
 plt.xlabel('Tiempo (s)')
 plt.ylabel('Velocidad (rev/s)')

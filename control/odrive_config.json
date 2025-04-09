@@ -26,8 +26,9 @@
         "config":{
           "vel_limit": 5.0,
           "control_mode": 3,
+          "input_filter_bandwidth": 20.0,
           "input_mode": 1,
-          "kp": 5,
+          "kp": 2,
           "kv": 1,
           "ki": 0
         }

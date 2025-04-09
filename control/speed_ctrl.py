@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from collections import deque
 import csv
+CSV_DIR = 'csv/'
 # Conectar con cualquier placa ODrive disponible
 print("Buscando ODrive...")
 found = False
@@ -98,11 +99,58 @@ Leer trayectoria del perfil de csv/velocity_profile.csv
 El .csv tiene columna de tiempo y de velocidad
 Leer velocidad en cada instante y enviar con axis.controller.input_vel
 """
+# Parámetros de la gráfica
+tiempos = deque(maxlen=300)
+posiciones = deque(maxlen=300)
+velocidades = deque(maxlen=300)
+
+fig, (ax1, ax2) = plt.subplots(2, 1)
+linea_pos, = ax1.plot([], [], 'b-', label='Posición (rev)')
+linea_vel, = ax2.plot([], [], 'r-', label='Velocidad (rev/s)')
+
 # Activar el eje en estado de control en bucle cerrado
 axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
 print("Control en LAZO CERRADO ACTIVADO")
 time.sleep(5)
+print("Test velocidad")
+axis.controller.input_vel = 0.3
+time.sleep(2)
+print("fin de velocidad positiva")
+axis.controller.input_vel = -0.3
+time.sleep(2)
+print("fin de velocidad negativa")
+# Archivo CSV
+filename = CSV_DIR + 'results.csv'
+csv_file = open(filename, mode='w', newline='')
+writer = csv.writer(csv_file)
+writer.writerow(['Time (s)', 'Position (revoluciones)', 'Velocity (rev/s)'])
 
+start_time = time.time()
+
+def actualizar(frame):
+    tiempo = time.time() - start_time
+    pos = axis.encoder.pos_estimate
+    vel = axis.encoder.vel_estimate
+
+    tiempos.append(tiempo)
+    posiciones.append(pos)
+    velocidades.append(vel)
+    
+    writer.writerow([tiempo, pos, vel])
+
+    linea_pos.set_data(tiempos, posiciones)
+    linea_vel.set_data(tiempos, velocidades)
+
+    ax1.set_xlim(max(0, tiempo - 10), tiempo + 1)
+    ax2.set_xlim(max(0, tiempo - 10), tiempo + 1)
+
+    ax1.set_ylim(min(posiciones, default=-1)-0.1, max(posiciones, default=1)+0.1)
+    ax2.set_ylim(min(velocidades, default=-2)-0.2, max(velocidades, default=2)+0.2)
+
+    return linea_pos, linea_vel
+
+
+"""
 # Cargar el perfil de velocidad desde el archivo CSV
 csv_file_path = "csv/velocity_profile.csv"
 vel_profile = []
@@ -132,4 +180,4 @@ for i in range(len(vel_profile) - 1):
 # Asegurarse de detener el motor al final
 axis.controller.input_vel = 0.0
 print("🛑 Perfil de velocidad completado.")
-
+"""
