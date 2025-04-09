@@ -88,15 +88,20 @@ with open(filename, mode='w', newline='') as csv_file:
 
     ref_enviada = False
     target_position = 6
-
+    single_step = True
     while time.time() - start_time < duration:
         elapsed = time.time() - start_time
 
         # Enviar referencia después del retardo inicial
-        if not ref_enviada and elapsed >= delay_before_ref:
+        if not ref_enviada and elapsed >= delay_before_ref and single_step:
             axis.controller.input_pos = target_position
             print(f"📍 Referencia enviada: {target_position} vueltas")
             ref_enviada = True
+            #single_step = False
+
+        if ref_enviada and elapsed > 2.0:
+            axis.controller.input_pos = -target_position
+            ref_enviada = False
 
         # Guardar datos
         pos = axis.encoder.pos_estimate
