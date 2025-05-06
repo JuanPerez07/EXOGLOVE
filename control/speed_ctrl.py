@@ -3,10 +3,8 @@ import time
 import odrive
 from odrive.enums import *
 import json
-import threading
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from collections import deque
+import csv
+import keyboard
 
 # Conectar con ODrive
 print("🔍 Buscando ODrive...")
@@ -72,65 +70,50 @@ if axis.motor.error != 0:
 axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
 print("🟢 Lazo cerrado activado")
 
-# Parámetros de la gráfica en tiempo real
-max_len = 400  # Cantidad de muestras visibles
-data_pos = deque([0]*max_len, maxlen=max_len)
-data_vel = deque([0]*max_len, maxlen=max_len)
-time_data = deque([0]*max_len, maxlen=max_len)
+# Ganancias del controlador
+kp = str(ctrl_cfg["kp"])
+kv = str(ctrl_cfg["kv"])
 
-start_time = time.time()
+# Esperar input de usuario para comenzar la prueba
+print("Pulse la tecla espacio para comenzar simulacion CONTROL VELOCIDAD")
+while not keyboard.is_pressed('space'):
+    time.sleep(0.1)
 
-def update_data():
-    while True:
+# Preparar CSV
+CSV_DIR = "csv/"
+filename = f"{CSV_DIR}_VEL_CMD_{kp}_{kv}_motor_data.csv"
+with open(filename, mode='w', newline='') as csv_file:
+    writer = csv.writer(csv_file)
+    writer.writerow(['Time (s)', 'Position (rev)', 'Velocity (rev/s)'])
+
+    # Comenzar a recopilar datos ANTES de enviar la referencia
+    print("Comenzando registro de datos...")
+    start_time = time.time()
+    duration = 20  # segundos
+    delay_before_ref = 1.0  # segundos antes de enviar primera referencia
+
+    last_ref_time = 0
+    speed_command = [0, 0.5, 0, -0.5, 0]
+    idx = 0
+    num_cmds = len(speed_command)
+    interval = 1 # comando cada 1s
+
+    while time.time() - start_time < duration:
         elapsed = time.time() - start_time
+
+        # Enviar referencias cada 1 s después del retardo inicial
+        if elapsed >= delay_before_ref and (elapsed - last_ref_time >= interval):
+            axis.controller.input_vel = speed_command[idx]
+            print(f"📍 Referencia enviada: {speed_command[idx]} vueltas/s")
+            idx = (idx + 1) % num_cmds
+            last_ref_time = elapsed
+
+        # Guardar datos
         pos = axis.encoder.pos_estimate
         vel = axis.encoder.vel_estimate
-        time_data.append(elapsed)
-        data_pos.append(pos)
-        data_vel.append(vel)
-        time.sleep(0.02)
+        writer.writerow([elapsed, pos, vel])
+        time.sleep(0.05)
 
-# Hilo para recopilar datos continuamente
-threading.Thread(target=update_data, daemon=True).start()
+print(f"✅ Datos guardados en '{filename}'")
 
-# Inicializar ventana de gráfica
-fig, ax = plt.subplots()
-line1, = ax.plot([], [], label="Posición (rev)")
-line2, = ax.plot([], [], label="Velocidad (rev/s)")
-ax.set_ylim(-5, 5)
-ax.set_xlim(0, 5)
-ax.set_xlabel("Tiempo (s)")
-ax.set_title("Liveplotter: Posición y Velocidad")
-ax.legend()
-ax.grid(True)
 
-def animate(i):
-    ax.set_xlim(max(0, time_data[0]), time_data[-1])
-    line1.set_data(time_data, data_pos)
-    line2.set_data(time_data, data_vel)
-    return line1, line2
-
-axis.controller.input_vel = 0.5
-time.sleep(10)
-ani = animation.FuncAnimation(fig, animate, interval=50)
-plt.show()
-"""
-# Enviar referencia tras retardo
-duration = 20
-delay_before_ref = 1.0
-ref_enviada = False
-target = 0.5
-
-while time.time() - start_time < duration:
-    elapsed = time.time() - start_time
-
-    if not ref_enviada and elapsed >= delay_before_ref:
-        axis.controller.input_vel = target
-        print(f"📍 Referencia enviada: {target} vueltas/segundo")
-        ref_enviada = True
-        single_step = False
-
-    time.sleep(0.05)
-
-print("✅ Medición finalizada")
-"""
