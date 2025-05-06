@@ -3,181 +3,134 @@ import time
 import odrive
 from odrive.enums import *
 import json
-import subprocess
-from odrive.utils import dump_errors
+import threading
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from collections import deque
-import csv
-CSV_DIR = 'csv/'
-# Conectar con cualquier placa ODrive disponible
-print("Buscando ODrive...")
-found = False
-my_drive = None
-while not found:
-    my_drive = odrive.find_any()
-    if my_drive is not None:
-        found = True
-    
-print("ODrive conectado")
 
-# Usar eje M0
+# Conectar con ODrive
+print("🔍 Buscando ODrive...")
+my_drive = None
+while my_drive is None:
+    my_drive = odrive.find_any()
+print("✅ ODrive conectado")
+
 axis = my_drive.axis0
 
-# Leer configuración desde archivo JSON
+# Leer configuración JSON
 with open("odrive_config.json", "r") as json_file:
     config = json.load(json_file)
     print("✅ Configuración JSON cargada")
 
-# Establecer estado inicial en IDLE
+# Establecer IDLE
 axis.requested_state = AXIS_STATE_IDLE
 time.sleep(0.5)
 
-#### Aplicar configuración básica al motor
-ax_m0_config = config["axis0"]["motor"]["config"]
+# Configuración del motor
+motor_cfg = config["axis0"]["motor"]["config"]
+axis.motor.config.motor_type = motor_cfg["motor_type"]
+axis.motor.config.current_lim = motor_cfg["current_lim"]
+axis.motor.config.pole_pairs = motor_cfg["pole_pairs"]
+axis.motor.config.resistance_calib_max_voltage = motor_cfg["resistance_calib_max_voltage"]
+axis.motor.config.requested_current_range = motor_cfg["requested_current_range"]
+axis.motor.config.current_control_bandwidth = motor_cfg["current_control_bandwidth"]
+axis.motor.config.torque_constant = motor_cfg["torque_constant"]
 
-
-axis.motor.config.motor_type = ax_m0_config["motor_type"]
-axis.motor.config.current_lim = ax_m0_config["current_lim"]
-axis.motor.config.pole_pairs = ax_m0_config["pole_pairs"]
-axis.motor.config.resistance_calib_max_voltage = ax_m0_config["resistance_calib_max_voltage"]
-axis.motor.config.requested_current_range = ax_m0_config["requested_current_range"]
-axis.motor.config.current_control_bandwidth = ax_m0_config["current_control_bandwidth"]
-axis.motor.config.torque_constant = ax_m0_config["torque_constant"]
-
-#### Config del encoder incremental
-ax0_encoder_config = config["axis0"]["encoder"]["config"]
-
-axis.encoder.config.cpr = ax0_encoder_config["cpr"]
-axis.encoder.config.mode = ax0_encoder_config["mode"]
-axis.encoder.config.calib_scan_distance = ax0_encoder_config["calib_scan_distance"]
-axis.encoder.config.bandwidth = ax0_encoder_config["bandwidth"]
-
-# Calibracion encoder con indice
-axis.encoder.config.use_index = ax0_encoder_config["use_index"]
-#axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
-
-# check the axis0.error is zero
-
-# save the config of the encoder 
+# Encoder
+enc_cfg = config["axis0"]["encoder"]["config"]
+axis.encoder.config.cpr = enc_cfg["cpr"]
+axis.encoder.config.mode = enc_cfg["mode"]
+axis.encoder.config.calib_scan_distance = enc_cfg["calib_scan_distance"]
+axis.encoder.config.bandwidth = enc_cfg["bandwidth"]
+axis.encoder.config.use_index = enc_cfg["use_index"]
 axis.encoder.config.pre_calibrated = True
-# to search index and the start up 
-#axis.config.startup_encoder_index_search = True
 
-#### Controller
-
-# Ganancias para control de posición
-ax0_ctrl_config = config["axis0"]["controller"]["config"]
-axis.controller.config.pos_gain = ax0_ctrl_config["kp"]
-axis.controller.config.vel_gain = ax0_ctrl_config["kv"] # * axis.motor.config.torque_constant * axis.encoder.config.cpr
-axis.controller.config.vel_integrator_gain = ax0_ctrl_config["ki"] #0.1 * axis.motor.config.torque_constant * axis.encoder.config.cpr
-axis.controller.config.vel_limit = ax0_ctrl_config["vel_limit"]
-axis.controller.config.control_mode = 2 # ax0_ctrl_config["control_mode"] # Control en posicion
-
-# para enviar directamente inputs de pos, vel o torque
+# Controlador
+ctrl_cfg = config["axis0"]["controller"]["config"]
+axis.controller.config.pos_gain = ctrl_cfg["kp"]
+axis.controller.config.vel_gain = ctrl_cfg["kv"]
+axis.controller.config.vel_integrator_gain = ctrl_cfg["ki"]
+axis.controller.config.vel_limit = ctrl_cfg["vel_limit"]
+axis.controller.config.control_mode = ctrl_cfg["control_mode"]
 axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
 
-# Otros parámetros del sistema
+# Otros ajustes
 my_drive.config.dc_max_negative_current = -2.0
 my_drive.config.enable_brake_resistor = False
 
-print("⚙️ Iniciando calibración del motor y del encoder...")
+# Calibración
+print("⚙️ Iniciando calibración...")
 axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-time.sleep(32) # dar tiempo para calibrarse correctamente
+time.sleep(32)
+print("✅ Calibración completada")
 
-print("✅ Motor calibrado")
-print(f"Position gain: {axis.controller.config.pos_gain}")
-print(f"Velocity gain: {axis.controller.config.vel_gain}")
-print(f"Integrator gain: {axis.controller.config.vel_integrator_gain}")
-print(f"Resultado de la calib (tiene que ser cero): {axis.motor.error}")
 if axis.motor.error != 0:
-    print("Error durante calibracion del motor")
+    print(f"❌ Error durante calibración del motor. Código: {axis.motor.error}")
     quit()
-"""
-Control en velocidad
-Leer trayectoria del perfil de csv/velocity_profile.csv 
-El .csv tiene columna de tiempo y de velocidad
-Leer velocidad en cada instante y enviar con axis.controller.input_vel
-"""
-# Parámetros de la gráfica
-tiempos = deque(maxlen=300)
-posiciones = deque(maxlen=300)
-velocidades = deque(maxlen=300)
 
-fig, (ax1, ax2) = plt.subplots(2, 1)
-linea_pos, = ax1.plot([], [], 'b-', label='Posición (rev)')
-linea_vel, = ax2.plot([], [], 'r-', label='Velocidad (rev/s)')
-
-# Activar el eje en estado de control en bucle cerrado
+# Activar lazo cerrado
 axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-print("Control en LAZO CERRADO ACTIVADO")
-time.sleep(5)
-print("Test velocidad")
-axis.controller.input_vel = 0.3
-time.sleep(2)
-print("fin de velocidad positiva")
-axis.controller.input_vel = -0.3
-time.sleep(2)
-print("fin de velocidad negativa")
-# Archivo CSV
-filename = CSV_DIR + 'results.csv'
-csv_file = open(filename, mode='w', newline='')
-writer = csv.writer(csv_file)
-writer.writerow(['Time (s)', 'Position (revoluciones)', 'Velocity (rev/s)'])
+print("🟢 Lazo cerrado activado")
+
+# Parámetros de la gráfica en tiempo real
+max_len = 400  # Cantidad de muestras visibles
+data_pos = deque([0]*max_len, maxlen=max_len)
+data_vel = deque([0]*max_len, maxlen=max_len)
+time_data = deque([0]*max_len, maxlen=max_len)
 
 start_time = time.time()
 
-def actualizar(frame):
-    tiempo = time.time() - start_time
-    pos = axis.encoder.pos_estimate
-    vel = axis.encoder.vel_estimate
+def update_data():
+    while True:
+        elapsed = time.time() - start_time
+        pos = axis.encoder.pos_estimate
+        vel = axis.encoder.vel_estimate
+        time_data.append(elapsed)
+        data_pos.append(pos)
+        data_vel.append(vel)
+        time.sleep(0.02)
 
-    tiempos.append(tiempo)
-    posiciones.append(pos)
-    velocidades.append(vel)
-    
-    writer.writerow([tiempo, pos, vel])
+# Hilo para recopilar datos continuamente
+threading.Thread(target=update_data, daemon=True).start()
 
-    linea_pos.set_data(tiempos, posiciones)
-    linea_vel.set_data(tiempos, velocidades)
+# Inicializar ventana de gráfica
+fig, ax = plt.subplots()
+line1, = ax.plot([], [], label="Posición (rev)")
+line2, = ax.plot([], [], label="Velocidad (rev/s)")
+ax.set_ylim(-5, 5)
+ax.set_xlim(0, 5)
+ax.set_xlabel("Tiempo (s)")
+ax.set_title("Liveplotter: Posición y Velocidad")
+ax.legend()
+ax.grid(True)
 
-    ax1.set_xlim(max(0, tiempo - 10), tiempo + 1)
-    ax2.set_xlim(max(0, tiempo - 10), tiempo + 1)
+def animate(i):
+    ax.set_xlim(max(0, time_data[0]), time_data[-1])
+    line1.set_data(time_data, data_pos)
+    line2.set_data(time_data, data_vel)
+    return line1, line2
 
-    ax1.set_ylim(min(posiciones, default=-1)-0.1, max(posiciones, default=1)+0.1)
-    ax2.set_ylim(min(velocidades, default=-2)-0.2, max(velocidades, default=2)+0.2)
-
-    return linea_pos, linea_vel
-
-
+axis.controller.input_vel = 0.5
+time.sleep(10)
+ani = animation.FuncAnimation(fig, animate, interval=50)
+plt.show()
 """
-# Cargar el perfil de velocidad desde el archivo CSV
-csv_file_path = "csv/velocity_profile.csv"
-vel_profile = []
+# Enviar referencia tras retardo
+duration = 20
+delay_before_ref = 1.0
+ref_enviada = False
+target = 0.5
 
-with open(csv_file_path, newline='') as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-        # Guardamos como flotantes para precisión
-        vel_profile.append((float(row['Time (s)']), float(row['Velocity (rev/s)'])))
+while time.time() - start_time < duration:
+    elapsed = time.time() - start_time
 
-print(f"📈 Se cargaron {len(vel_profile)} puntos del perfil de velocidad")
+    if not ref_enviada and elapsed >= delay_before_ref:
+        axis.controller.input_vel = target
+        print(f"📍 Referencia enviada: {target} vueltas/segundo")
+        ref_enviada = True
+        single_step = False
 
-# Ejecutar el perfil de velocidad
-print("🚀 Ejecutando perfil de velocidad...")
-start_time = time.time()
-for i in range(len(vel_profile) - 1):
-    # Velocidad actual a enviar
-    velocity = vel_profile[i][1]
-    # Tiempo actual y el siguiente (para calcular cuánto esperar)
-    current_time = vel_profile[i][0]
-    next_time = vel_profile[i + 1][0]
-    delta_t = next_time - current_time
+    time.sleep(0.05)
 
-    axis.controller.input_vel = velocity
-    time.sleep(delta_t)
-
-# Asegurarse de detener el motor al final
-axis.controller.input_vel = 0.0
-print("🛑 Perfil de velocidad completado.")
+print("✅ Medición finalizada")
 """
