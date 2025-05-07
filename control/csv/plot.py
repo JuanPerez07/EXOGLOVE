@@ -22,6 +22,7 @@ with open(file_str, mode='r') as file:
 
 # Crear las gráficas
 plt.figure(figsize=(10, 6))
+plt.suptitle(file_str)
 """
 """
 # Gráfica de la posición

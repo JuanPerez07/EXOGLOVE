@@ -73,7 +73,7 @@ print("🟢 Lazo cerrado activado")
 # Ganancias del controlador
 kp = str(ctrl_cfg["kp"])
 kv = str(ctrl_cfg["kv"])
-
+ki = str(ctrl_cfg["ki"])
 # Esperar input de usuario para comenzar la prueba
 print("Pulse la tecla espacio para comenzar simulacion CONTROL VELOCIDAD")
 while not keyboard.is_pressed('space'):
@@ -81,7 +81,7 @@ while not keyboard.is_pressed('space'):
 
 # Preparar CSV
 CSV_DIR = "csv/"
-filename = f"{CSV_DIR}_VEL_CMD_{kp}_{kv}_motor_data.csv"
+filename = f"{CSV_DIR}_VEL_CMD_{kp}_{kv}_{ki}_motor_data.csv"
 with open(filename, mode='w', newline='') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerow(['Time (s)', 'Position (rev)', 'Velocity (rev/s)'])
