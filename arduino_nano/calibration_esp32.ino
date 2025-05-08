@@ -14,7 +14,7 @@
 // pin 16: RX - connect to ODrive TX
 // pin 17: TX - connect to ODrive RX
 HardwareSerial odrive_serial(2);
-unsigned long baudrate = 19200; // Must match what you configure on the ODrive (see docs for details)
+unsigned long baudrate = 115200; // Must match what you configure on the ODrive (see docs for details)
 
 // Teensy 3 and 4 (all versions) - Serial1
 // pin 0: RX - connect to ODrive TX
