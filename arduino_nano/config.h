@@ -13,7 +13,7 @@ public:
   float torque_constant = 0.05;
 
   // Encoder
-  int encoder_cpr = 8192;
+  int encoder_cpr = 20480;
   int encoder_mode = 0;
   float calib_scan_distance = 50.0;
   float encoder_bandwidth = 100.0;
