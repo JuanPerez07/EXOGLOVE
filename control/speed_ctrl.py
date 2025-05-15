@@ -93,7 +93,7 @@ with open(filename, mode='w', newline='') as csv_file:
     delay_before_ref = 1.0  # segundos antes de enviar primera referencia
 
     last_ref_time = 0
-    speed_command = [0, 0.8, 0, -0.8]
+    speed_command = [0, 0.5, 0, -0.5]
     idx = 0
     num_cmds = len(speed_command)
     interval = 1 # comando cada 1s
