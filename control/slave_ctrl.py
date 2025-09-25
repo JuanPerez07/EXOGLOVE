@@ -1,0 +1,166 @@
+from bluezero import peripheral, adapter, device
+# webgraphy: https://bluezero.readthedocs.io/en/stable/examples.html#peripheral-nordic-uart-service
+import odrive
+from odrive.enums import *
+import json
+import time
+# Master device name
+MASTER_NAME = 'NanoESP32_BLE'
+# UUIDs del servicio y características UART (NUS)
+UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+# global variable for motor1
+global m1
+
+class UARTDevice:
+    tx_obj = None
+
+    @classmethod
+    def on_connect(cls, ble_device: device.Device):
+        print("Connected to " + str(ble_device.address))
+
+    @classmethod
+    def on_disconnect(cls, adapter_address, device_address):
+        print("Disconnected from " + device_address)
+
+    @classmethod
+    def uart_notify(cls, notifying, characteristic):
+        if notifying:
+            cls.tx_obj = characteristic
+        else:
+            cls.tx_obj = None
+
+    @classmethod
+    def update_tx(cls, value):
+        if cls.tx_obj:
+            print("Sending")
+            cls.tx_obj.set_value(value)
+
+    @classmethod
+    def uart_write(cls, value, options):
+        print('raw bytes:', value)
+        print('With options:', options)
+        print('Text value:', bytes(value).decode('utf-8'))
+        cls.update_tx(value)
+
+## ----------------------------------------------------------------------------
+# odrive motors calib and config
+def doMotorCalib(my_drive):
+    print("🔍 Buscando ODrive...")
+    while my_drive is None:
+        my_drive = odrive.find_any()
+    print("✅ ODrive conectado")
+
+    axis = my_drive.axis0
+
+    # Leer configuración JSON
+    with open("odrive_config.json", "r") as json_file:
+        config = json.load(json_file)
+        print("✅ Configuración JSON cargada")
+
+    # Establecer IDLE
+    axis.requested_state = AXIS_STATE_IDLE
+    time.sleep(0.5)
+
+    # Configuración del motor
+    motor_cfg = config["axis0"]["motor"]["config"]
+    axis.motor.config.motor_type = motor_cfg["motor_type"]
+    axis.motor.config.current_lim = motor_cfg["current_lim"]
+    axis.motor.config.pole_pairs = motor_cfg["pole_pairs"]
+    axis.motor.config.resistance_calib_max_voltage = motor_cfg["resistance_calib_max_voltage"]
+    axis.motor.config.requested_current_range = motor_cfg["requested_current_range"]
+    axis.motor.config.current_control_bandwidth = motor_cfg["current_control_bandwidth"]
+    axis.motor.config.torque_constant = motor_cfg["torque_constant"]
+
+    # Encoder
+    enc_cfg = config["axis0"]["encoder"]["config"]
+    axis.encoder.config.cpr = enc_cfg["cpr"]
+    axis.encoder.config.mode = enc_cfg["mode"]
+    axis.encoder.config.calib_scan_distance = enc_cfg["calib_scan_distance"]
+    axis.encoder.config.bandwidth = enc_cfg["bandwidth"]
+    axis.encoder.config.use_index = enc_cfg["use_index"]
+    axis.encoder.config.pre_calibrated = True
+
+    # Controlador
+    ctrl_cfg = config["axis0"]["controller"]["config"]
+    axis.controller.config.pos_gain = ctrl_cfg["kp"]
+    axis.controller.config.vel_gain = ctrl_cfg["kv"]
+    axis.controller.config.vel_integrator_gain = ctrl_cfg["ki"]
+    axis.controller.config.vel_limit = ctrl_cfg["vel_limit"]
+    axis.controller.config.control_mode = ctrl_cfg["control_mode"]
+    axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+
+    # Otros ajustes
+    my_drive.config.dc_max_negative_current = -2.0
+    my_drive.config.enable_brake_resistor = False
+
+    # Calibración
+    print("⚙️ Iniciando calibración...")
+    axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+    time.sleep(32)
+    print("✅ Calibración completada")
+
+    if axis.motor.error != 0:
+        print(f"❌ Error durante calibración del motor. Código: {axis.motor.error}")
+        quit()
+
+    # Activar lazo cerrado
+    axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+    print("🟢 Lazo cerrado activado")
+
+    return my_drive.axis0
+
+# Callback cuando llega un mensaje por RX
+def rx_handler(value, options):
+    msg = value.decode("utf-8")
+    print(f"--> Recibido: {msg}")
+    target = 0.85 # const value
+    # decode the message received 
+    if (msg == "0001"): # supination
+        if (m1 is not None): m1.controller.input_vel = target
+        else: print(' >>>>> Supination cmd not sent to motor')
+    elif (msg == "0010"): # pronation
+        if (m1 is not None): m1.controller.input_vel = -target
+        else: print('>>>> Pronation cmd not sent to the motor')
+    else: # default case we send null speed
+        if (m1 is not None): m1.controller.input_vel = 0.0
+
+
+# Crear periférico
+adapter_address = list(adapter.Adapter.available())[0].address
+device = peripheral.Peripheral(adapter_address,local_name=MASTER_NAME)
+
+# Añadir servicio UART
+device.add_service(srv_id=1, uuid=UART_SERVICE_UUID, primary=True)
+
+# Añadir característica RX (escritura desde el maestro)
+device.add_characteristic(
+    srv_id=1,
+    chr_id=1,
+    uuid=RX_CHAR_UUID,
+    value=[],
+    notifying=False,
+    flags=['write'],
+    write_callback=rx_handler
+)
+
+# Añadir característica TX (notificación hacia el maestro)
+device.add_characteristic(
+    srv_id=1,
+    chr_id=2,
+    uuid=TX_CHAR_UUID,
+    value=[],
+    notifying=False,
+    flags=['notify']
+)
+# odrive obj
+my_drive = None
+# Calibrate the motor
+m1 = doMotorCalib(my_drive)
+
+print("------ Slave BLE server ready, awaiting master pairing -------------")
+device.on_connect = UARTDevice.on_connect
+#device.on_disconnect = UARTDevice.on_disconnect
+
+device.publish()
