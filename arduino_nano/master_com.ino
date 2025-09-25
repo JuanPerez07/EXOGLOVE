@@ -8,6 +8,7 @@
 #define PIN_RS_SUP 3 // D3
 #define PIN_RS_ENABLE 2 // D2
 
+#define FREQ_DATASEND 2000 // send data each 2 seconds
 /* SDA and SCL pins for I2C comms
     SDA -> A4
     SCL -> A5
@@ -134,9 +135,9 @@ void loop() {
     peripheral = BLE.available();
     static int prev_st = HIGH; // previous state of the enable button
     if (peripheral) {
-        Serial.println("Connected to Slave Nano!");
+        Serial.println("Connected to Raspberry Pi 5!");
         BLE.stopScan();
-        if (peripheral.connect()) {
+        while (peripheral.connect()) {
             updateBLEConnected(true); // show the successful connection in the display
             Serial.println("Connection successful!");
             // Discover the UART Service and Characteristics
@@ -170,7 +171,7 @@ void loop() {
                             updateDisplayAction(command, false); // update the display 
                           }
                           // reading frequency
-                          delay(2000);
+                          delay(FREQ_DATASEND);
                       }
                       updateBLEConnected(false); // show that connection was lost
                       prev_st = digitalRead(PIN_RS_ENABLE); // Actualizar estado al soltar
@@ -181,9 +182,12 @@ void loop() {
             } else {
                 Serial.println("Service not found!");
             }
-        } else {
-            Serial.println("Failed to connect. Retrying...");
-        }
+        } 
+        //else {
+        
+        Serial.println("Disconnected of the Rpi5");
+        delay(1000);
+        //}
     }
     delay(1000);  // Short delay before trying again
 }
