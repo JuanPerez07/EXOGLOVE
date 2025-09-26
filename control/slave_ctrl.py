@@ -12,7 +12,7 @@ RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 # global variable for motor1
 global m1
-
+global last_msg
 class UARTDevice:
     tx_obj = None
 
@@ -118,14 +118,19 @@ def rx_handler(value, options):
     target = 0.85 # const value
     # decode the message received 
     if (msg == "0001"): # supination
-        if (m1 is not None): m1.controller.input_vel = target
-        else: print(' >>>>> Supination cmd not sent to motor')
+        if (m1 is not None and last_msg != msg): 
+            m1.controller.input_vel = target
+            print('>>> Supination cmd sent!')
+        else: print(' xxxxx Supination cmd not sent to motor')
     elif (msg == "0010"): # pronation
-        if (m1 is not None): m1.controller.input_vel = -target
-        else: print('>>>> Pronation cmd not sent to the motor')
+        if (m1 is not None and last_msg != msg): 
+            m1.controller.input_vel = -target
+            print('>>> Pronation cmd sent!')
+        else: print('xxxxx Pronation cmd not sent to the motor')
     else: # default case we send null speed
-        if (m1 is not None): m1.controller.input_vel = 0.0
-
+        if (m1 is not None and last_msg != msg): m1.controller.input_vel = 0.0
+    # update last_msg
+    last_msg = msg
 
 # Crear periférico
 adapter_address = list(adapter.Adapter.available())[0].address
@@ -158,7 +163,7 @@ device.add_characteristic(
 my_drive = None
 # Calibrate the motor
 m1 = doMotorCalib(my_drive)
-
+last_msg = None # global var to avoid sending same command many times
 print("------ Slave BLE server ready, awaiting master pairing -------------")
 device.on_connect = UARTDevice.on_connect
 #device.on_disconnect = UARTDevice.on_disconnect
