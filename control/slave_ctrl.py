@@ -113,6 +113,7 @@ def doMotorCalib(my_drive):
 
 # Callback cuando llega un mensaje por RX
 def rx_handler(value, options):
+    global m1, last_msg
     msg = value.decode("utf-8")
     print(f"--> Recibido: {msg}")
     target = 0.85 # const value
