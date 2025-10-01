@@ -1,7 +1,5 @@
 from bluezero import peripheral, adapter, device
 # webgraphy: https://bluezero.readthedocs.io/en/stable/examples.html#peripheral-nordic-uart-service
-#import odrive
-#from odrive.enums import *
 import json
 import time
 # Master device name
