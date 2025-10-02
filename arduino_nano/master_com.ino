@@ -9,7 +9,7 @@
 #define PIN_RS_SUP 3 // D3
 #define PIN_RS_ENABLE 2 // D2
 
-#define FREQ_DATASEND 2000 // send data each 2 seconds
+#define FREQ_DATASEND 250 // send data each 250 ms
 #define MAX_BUTTONS 5
 #define MAX_ACTIONS 4
 
@@ -167,7 +167,7 @@ void loop() {
           }
       }
       showMessageOLED("Disconnected\nof Rpi5");
-      delay(1000);
+      delay(100);
   }
-  delay(1000); 
+  delay(100); 
 }
