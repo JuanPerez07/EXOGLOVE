@@ -1,18 +1,23 @@
 from bluezero import peripheral, adapter, device
-# webgraphy: https://bluezero.readthedocs.io/en/stable/examples.html#peripheral-nordic-uart-service
 import odrive
 from odrive.enums import *
 import json
 import time
+import threading   # <--- para el watchdog
+
 # Master device name
 MASTER_NAME = 'NanoESP32_BLE'
+
 # UUIDs del servicio y características UART (NUS)
 UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
 # global variable for motor1
 global m1
 global last_msg
+global last_msg_time   # <-- timestamp del último mensaje
+
 class UARTDevice:
     tx_obj = None
 
@@ -113,34 +118,54 @@ def doMotorCalib(my_drive):
 
 # Callback cuando llega un mensaje por RX
 def rx_handler(value, options):
-    global m1, last_msg
-    msg = value.decode("utf-8")
+    global m1, last_msg, last_msg_time
+    msg = value.decode("utf-8").strip()   # limpiamos posibles \n o espacios
     print(f"--> Recibido: {msg}")
     target = 0.85 # const value
-    # decode the message received 
-    if (msg == "0001"): # supination
-        if (m1 is not None and last_msg != msg): 
+
+    if msg == "0001":  # supination
+        if m1 is not None and last_msg != msg:
             m1.controller.input_vel = target
             print('>>> Supination cmd sent!')
-        else: print(' xxxxx Supination cmd not sent to motor')
-    elif (msg == "0010"): # pronation
-        if (m1 is not None and last_msg != msg): 
+        else:
+            print('xxxxx Supination cmd not sent to motor')
+    elif msg == "0010":  # pronation
+        if m1 is not None and last_msg != msg:
             m1.controller.input_vel = -target
             print('>>> Pronation cmd sent!')
-        else: print('xxxxx Pronation cmd not sent to the motor')
-    else: # default case we send null speed
-        if (m1 is not None and last_msg != msg): m1.controller.input_vel = 0.0
+        else:
+            print('xxxxx Pronation cmd not sent to the motor')
+    else:  # default case
+        if m1 is not None and last_msg != msg:
+            m1.controller.input_vel = 0.0
+            print('>>> Motor stopped!')
+
     # update last_msg
     last_msg = msg
+    # actualizar timestamp de último mensaje recibido
+    last_msg_time = time.time()
+
+# ------------------- WATCHDOG -------------------
+def watchdog_thread():
+    global m1, last_msg_time
+    timeout = 2.5
+    while True:
+        time.sleep(0.5)
+        if m1 is not None and last_msg_time is not None:
+            elapsed = time.time() - last_msg_time
+            if elapsed > timeout:
+                if m1.controller.input_vel != 0.0:
+                    m1.controller.input_vel = 0.0
+                    print(f"⏱️ WATCHDOG: No se reciben mensajes desde hace {elapsed:.1f}s -> Motor detenido")
 
 # Crear periférico
 adapter_address = list(adapter.Adapter.available())[0].address
-device = peripheral.Peripheral(adapter_address,local_name=MASTER_NAME)
+device = peripheral.Peripheral(adapter_address, local_name=MASTER_NAME)
 
 # Añadir servicio UART
 device.add_service(srv_id=1, uuid=UART_SERVICE_UUID, primary=True)
 
-# Añadir característica RX (escritura desde el maestro)
+# Añadir característica RX
 device.add_characteristic(
     srv_id=1,
     chr_id=1,
@@ -151,7 +176,7 @@ device.add_characteristic(
     write_callback=rx_handler
 )
 
-# Añadir característica TX (notificación hacia el maestro)
+# Añadir característica TX
 device.add_characteristic(
     srv_id=1,
     chr_id=2,
@@ -160,13 +185,19 @@ device.add_characteristic(
     notifying=False,
     flags=['notify']
 )
+
 # odrive obj
 my_drive = None
 # Calibrate the motor
 m1 = doMotorCalib(my_drive)
-last_msg = None # global var to avoid sending same command many times
+last_msg = None
+last_msg_time = None   # inicializar watchdog
+
 print("------ Slave BLE server ready, awaiting master pairing -------------")
 device.on_connect = UARTDevice.on_connect
-#device.on_disconnect = UARTDevice.on_disconnect
+
+# Lanzar watchdog en un hilo aparte
+t = threading.Thread(target=watchdog_thread, daemon=True)
+t.start()
 
 device.publish()
