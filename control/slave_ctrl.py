@@ -18,6 +18,10 @@ global m1
 global last_msg
 global last_msg_time   # <-- timestamp del último mensaje
 
+# frequency of posting by arduino will be 250 ms around 4 Hz
+FREQ = 0.25 # seconds
+WATCHDOG_THRES = FREQ + 0.5 # after 500 ms without msg received 
+
 class UARTDevice:
     tx_obj = None
 
@@ -148,15 +152,13 @@ def rx_handler(value, options):
 # ------------------- WATCHDOG -------------------
 def watchdog_thread():
     global m1, last_msg_time
-    timeout = 2.5
+    timeout = WATCHDOG_THRES
     while True:
-        time.sleep(0.5)
         if m1 is not None and last_msg_time is not None:
             elapsed = time.time() - last_msg_time
             if elapsed > timeout:
-                if m1.controller.input_vel != 0.0:
-                    m1.controller.input_vel = 0.0
-                    print(f"⏱️ WATCHDOG: No se reciben mensajes desde hace {elapsed:.1f}s -> Motor detenido")
+                m1.controller.input_vel = 0.0
+                print(f"⏱️ WATCHDOG activated -> Motor stopped")
 
 # Crear periférico
 adapter_address = list(adapter.Adapter.available())[0].address
