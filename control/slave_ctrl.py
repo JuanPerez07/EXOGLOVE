@@ -18,9 +18,9 @@ global m1
 global last_msg
 global last_msg_time   # <-- timestamp del último mensaje
 
-# frequency of posting by arduino will be 250 ms around 4 Hz
-FREQ = 0.25 # seconds
-WATCHDOG_THRES = FREQ + 0.5 # after 500 ms without msg received 
+FREQ = 0.25 # (secs) frequency of data sending from ArduinoNANO_ESP32
+WATCHDOG_THRES =  FREQ + 0.5 # 500 ms after no msg received
+CONSIGNA = 0.95 # rev/s
 
 class UARTDevice:
     tx_obj = None
@@ -125,17 +125,16 @@ def rx_handler(value, options):
     global m1, last_msg, last_msg_time
     msg = value.decode("utf-8").strip()   # limpiamos posibles \n o espacios
     print(f"--> Recibido: {msg}")
-    target = 0.85 # const value
 
     if msg == "0001":  # supination
         if m1 is not None and last_msg != msg:
-            m1.controller.input_vel = target
+            m1.controller.input_vel = CONSIGNA
             print('>>> Supination cmd sent!')
         else:
             print('xxxxx Supination cmd not sent to motor')
     elif msg == "0010":  # pronation
         if m1 is not None and last_msg != msg:
-            m1.controller.input_vel = -target
+            m1.controller.input_vel = -CONSIGNA
             print('>>> Pronation cmd sent!')
         else:
             print('xxxxx Pronation cmd not sent to the motor')
@@ -152,14 +151,12 @@ def rx_handler(value, options):
 # ------------------- WATCHDOG -------------------
 def watchdog_thread():
     global m1, last_msg_time
-    timeout = WATCHDOG_THRES
     while True:
         if m1 is not None and last_msg_time is not None:
             elapsed = time.time() - last_msg_time
-            if elapsed > timeout:
+            if elapsed > WATCHDOG_THRES:
                 m1.controller.input_vel = 0.0
-                print(f"⏱️ WATCHDOG activated -> Motor stopped")
-
+                print(f"⏱️ WATCHDOG activated -> Motor stop")
 # Crear periférico
 adapter_address = list(adapter.Adapter.available())[0].address
 device = peripheral.Peripheral(adapter_address, local_name=MASTER_NAME)
