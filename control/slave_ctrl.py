@@ -3,7 +3,9 @@ import odrive
 from odrive.enums import *
 import json
 import time
-import threading   # <--- para el watchdog
+import threading
+import tkinter as tk
+from tkinter import ttk
 
 # Master device name
 MASTER_NAME = 'NanoESP32_BLE'
@@ -16,12 +18,51 @@ TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 # global variable for motor1
 global m1
 global last_msg
-global last_msg_time   # <-- timestamp del último mensaje
+global last_msg_time
 
-FREQ = 0.25 # (secs) frequency of data sending from ArduinoNANO_ESP32
-WATCHDOG_THRES =  FREQ + 0.5 # 500 ms after no msg received
-CONSIGNA = 0.95 # rev/s
+FREQ = 0.25  # secs
+WATCHDOG_THRES = FREQ + 0.5
 
+# -----------------------------------------------------------------------------
+# Clase para manejar el valor dinámico del setpoint y su interfaz
+class MotorControllerInterface:
+    def __init__(self):
+        self.dynamic_setpoint = 0.95  # valor inicial
+
+        # Crear ventana con Tkinter
+        self.root = tk.Tk()
+        self.root.title("Control de Dynamic Setpoint")
+
+        ttk.Label(self.root, text="Setpoint dinámico (0 - 1.5):", font=("Arial", 12)).pack(pady=10)
+
+        # Slider
+        self.slider = ttk.Scale(
+            self.root,
+            from_=0.0,
+            to=1.5,
+            orient="horizontal",
+            length=300,
+            command=self.update_setpoint
+        )
+        self.slider.set(self.dynamic_setpoint)
+        self.slider.pack(pady=10)
+
+        # Etiqueta de valor
+        self.value_label = ttk.Label(self.root, text=f"Valor actual: {self.dynamic_setpoint:.2f}", font=("Arial", 11))
+        self.value_label.pack(pady=5)
+
+        # Ejecutar la GUI en un hilo aparte
+        threading.Thread(target=self.root.mainloop, daemon=True).start()
+
+    def update_setpoint(self, val):
+        """Callback del slider: actualiza el valor dinámico"""
+        self.dynamic_setpoint = float(val)
+        self.value_label.config(text=f"Valor actual: {self.dynamic_setpoint:.2f}")
+
+# Crear instancia global
+interface = MotorControllerInterface()
+
+# -----------------------------------------------------------------------------
 class UARTDevice:
     tx_obj = None
 
@@ -53,7 +94,7 @@ class UARTDevice:
         print('Text value:', bytes(value).decode('utf-8'))
         cls.update_tx(value)
 
-## ----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # odrive motors calib and config
 def doMotorCalib(my_drive):
     print("🔍 Buscando ODrive...")
@@ -63,12 +104,10 @@ def doMotorCalib(my_drive):
 
     axis = my_drive.axis0
 
-    # Leer configuración JSON
     with open("odrive_config.json", "r") as json_file:
         config = json.load(json_file)
         print("✅ Configuración JSON cargada")
 
-    # Establecer IDLE
     axis.requested_state = AXIS_STATE_IDLE
     time.sleep(0.5)
 
@@ -100,11 +139,9 @@ def doMotorCalib(my_drive):
     axis.controller.config.control_mode = ctrl_cfg["control_mode"]
     axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
 
-    # Otros ajustes
     my_drive.config.dc_max_negative_current = -2.0
     my_drive.config.enable_brake_resistor = False
 
-    # Calibración
     print("⚙️ Iniciando calibración...")
     axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
     time.sleep(32)
@@ -114,41 +151,38 @@ def doMotorCalib(my_drive):
         print(f"❌ Error durante calibración del motor. Código: {axis.motor.error}")
         quit()
 
-    # Activar lazo cerrado
     axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
     print("🟢 Lazo cerrado activado")
 
     return my_drive.axis0
 
-# Callback cuando llega un mensaje por RX
+# -----------------------------------------------------------------------------
+# Callback BLE
 def rx_handler(value, options):
-    global m1, last_msg, last_msg_time
-    msg = value.decode("utf-8").strip()   # limpiamos posibles \n o espacios
+    global m1, last_msg, last_msg_time, interface
+    msg = value.decode("utf-8").strip()
     print(f"--> Recibido: {msg}")
+
+    setpoint = interface.dynamic_setpoint  # obtener valor dinámico
 
     if msg == "0001":  # supination
         if m1 is not None and last_msg != msg:
-            m1.controller.input_vel = CONSIGNA
-            print('>>> Supination cmd sent!')
-        else:
-            print('xxxxx Supination cmd not sent to motor')
+            m1.controller.input_vel = setpoint
+            print(f'>>> Supination cmd sent! (vel = {setpoint:.2f})')
     elif msg == "0010":  # pronation
         if m1 is not None and last_msg != msg:
-            m1.controller.input_vel = -CONSIGNA
-            print('>>> Pronation cmd sent!')
-        else:
-            print('xxxxx Pronation cmd not sent to the motor')
-    else:  # default case
+            m1.controller.input_vel = -setpoint
+            print(f'>>> Pronation cmd sent! (vel = {-setpoint:.2f})')
+    else:
         if m1 is not None and last_msg != msg:
             m1.controller.input_vel = 0.0
             print('>>> Motor stopped!')
 
-    # update last_msg
     last_msg = msg
-    # actualizar timestamp de último mensaje recibido
     last_msg_time = time.time()
 
-# ------------------- WATCHDOG -------------------
+# -----------------------------------------------------------------------------
+# Watchdog
 def watchdog_thread():
     global m1, last_msg_time
     while True:
@@ -157,45 +191,30 @@ def watchdog_thread():
             if elapsed > WATCHDOG_THRES:
                 m1.controller.input_vel = 0.0
                 print(f"⏱️ WATCHDOG activated -> Motor stop")
-# Crear periférico
+        time.sleep(0.1)
+
+# -----------------------------------------------------------------------------
+# Crear periférico BLE
 adapter_address = list(adapter.Adapter.available())[0].address
 device = peripheral.Peripheral(adapter_address, local_name=MASTER_NAME)
 
-# Añadir servicio UART
 device.add_service(srv_id=1, uuid=UART_SERVICE_UUID, primary=True)
+device.add_characteristic(srv_id=1, chr_id=1, uuid=RX_CHAR_UUID,
+                          value=[], notifying=False, flags=['write'], write_callback=rx_handler)
+device.add_characteristic(srv_id=1, chr_id=2, uuid=TX_CHAR_UUID,
+                          value=[], notifying=False, flags=['notify'])
 
-# Añadir característica RX
-device.add_characteristic(
-    srv_id=1,
-    chr_id=1,
-    uuid=RX_CHAR_UUID,
-    value=[],
-    notifying=False,
-    flags=['write'],
-    write_callback=rx_handler
-)
-
-# Añadir característica TX
-device.add_characteristic(
-    srv_id=1,
-    chr_id=2,
-    uuid=TX_CHAR_UUID,
-    value=[],
-    notifying=False,
-    flags=['notify']
-)
-
-# odrive obj
+# -----------------------------------------------------------------------------
+# Inicialización ODrive
 my_drive = None
-# Calibrate the motor
 m1 = doMotorCalib(my_drive)
 last_msg = None
-last_msg_time = None   # inicializar watchdog
+last_msg_time = None
 
 print("------ Slave BLE server ready, awaiting master pairing -------------")
 device.on_connect = UARTDevice.on_connect
 
-# Lanzar watchdog en un hilo aparte
+# Hilo del watchdog
 t = threading.Thread(target=watchdog_thread, daemon=True)
 t.start()
 
