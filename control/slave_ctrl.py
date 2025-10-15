@@ -30,6 +30,7 @@ class MotorControllerInterface:
     def __init__(self, root):
         self.root = root
         self.dynamic_setpoint = 0.95  # valor inicial
+        self.value_label = None 
         self.root.title("Control de Dynamic Setpoint")
 
         ttk.Label(self.root, text="Setpoint dinámico (0 - 1.5):", font=("Arial", 12)).pack(pady=10)
@@ -54,7 +55,8 @@ class MotorControllerInterface:
     def update_setpoint(self, val):
         """Callback del slider: actualiza el valor dinámico"""
         self.dynamic_setpoint = float(val)
-        self.value_label.config(text=f"Valor actual: {self.dynamic_setpoint:.2f}")
+        if self.value_label is not None: 
+            self.value_label.config(text=f"Valor actual: {self.dynamic_setpoint:.2f}")
 
 # -----------------------------------------------------------------------------
 class UARTDevice:
