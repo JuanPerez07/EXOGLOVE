@@ -47,13 +47,6 @@ class MotorControllerInterface:
         self.slider.set(self.dynamic_setpoint)
         self.slider.pack(pady=10)
 
-        # Etiqueta de valor
-        self.value_label = ttk.Label(self.root, text=f"Valor actual: {self.dynamic_setpoint:.2f}", font=("Arial", 11))
-        self.value_label.pack(pady=5)
-
-        # Ejecutar la GUI en un hilo aparte
-        threading.Thread(target=self.root.mainloop, daemon=True).start()
-
     def update_setpoint(self, val):
         """Callback del slider: actualiza el valor dinámico"""
         self.dynamic_setpoint = float(val)
@@ -61,7 +54,8 @@ class MotorControllerInterface:
 
 # Crear instancia global
 interface = MotorControllerInterface()
-
+t = threading.Thread(target=device.run(), daemon=True).start()
+interface.root.mainloop()
 # -----------------------------------------------------------------------------
 class UARTDevice:
     tx_obj = None
