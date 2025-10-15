@@ -1,36 +1,35 @@
-from bluezero import peripheral, adapter, device
-import odrive
-from odrive.enums import *
-import json
 import time
+import json
 import threading
 import tkinter as tk
 from tkinter import ttk
 
-# Master device name
-MASTER_NAME = 'NanoESP32_BLE'
+import odrive
+from odrive.enums import *
+from bluezero import peripheral, adapter, device
 
-# UUIDs del servicio y características UART (NUS)
+# --- Configuration Constants ---
+MASTER_NAME = 'NanoESP32_BLE'
 UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-# global variable for motor1
-global m1
-global last_msg
-global last_msg_time
-
 FREQ = 0.25  # secs
 WATCHDOG_THRES = FREQ + 0.5
+
+# --- Global variables ---
+# These are accessed by callbacks and threads
+m1 = None
+last_msg = None
+last_msg_time = None
+interface = None
 
 # -----------------------------------------------------------------------------
 # Clase para manejar el valor dinámico del setpoint y su interfaz
 class MotorControllerInterface:
-    def __init__(self):
+    def __init__(self, root):
+        self.root = root
         self.dynamic_setpoint = 0.95  # valor inicial
-
-        # Crear ventana con Tkinter
-        self.root = tk.Tk()
         self.root.title("Control de Dynamic Setpoint")
 
         ttk.Label(self.root, text="Setpoint dinámico (0 - 1.5):", font=("Arial", 12)).pack(pady=10)
@@ -47,15 +46,16 @@ class MotorControllerInterface:
         self.slider.set(self.dynamic_setpoint)
         self.slider.pack(pady=10)
 
+        # Label to show the current value
+        self.value_label = ttk.Label(self.root, text=f"Valor actual: {self.dynamic_setpoint:.2f}", font=("Arial", 10))
+        self.value_label.pack(pady=5)
+
+
     def update_setpoint(self, val):
         """Callback del slider: actualiza el valor dinámico"""
         self.dynamic_setpoint = float(val)
         self.value_label.config(text=f"Valor actual: {self.dynamic_setpoint:.2f}")
 
-# Crear instancia global
-interface = MotorControllerInterface()
-t = threading.Thread(target=device.run(), daemon=True).start()
-interface.root.mainloop()
 # -----------------------------------------------------------------------------
 class UARTDevice:
     tx_obj = None
@@ -90,10 +90,9 @@ class UARTDevice:
 
 # -----------------------------------------------------------------------------
 # odrive motors calib and config
-def doMotorCalib(my_drive):
+def doMotorCalib():
     print("🔍 Buscando ODrive...")
-    while my_drive is None:
-        my_drive = odrive.find_any()
+    my_drive = odrive.find_any()
     print("✅ ODrive conectado")
 
     axis = my_drive.axis0
@@ -157,7 +156,11 @@ def rx_handler(value, options):
     msg = value.decode("utf-8").strip()
     print(f"--> Recibido: {msg}")
 
-    setpoint = interface.dynamic_setpoint  # obtener valor dinámico
+    # Ensure the interface exists before trying to access its attributes
+    if interface:
+        setpoint = interface.dynamic_setpoint  # obtener valor dinámico
+    else:
+        setpoint = 0.95 # Default value if interface is not ready
 
     if msg == "0001":  # supination
         if m1 is not None and last_msg != msg:
@@ -185,31 +188,57 @@ def watchdog_thread():
             if elapsed > WATCHDOG_THRES:
                 m1.controller.input_vel = 0.0
                 print(f"⏱️ WATCHDOG activated -> Motor stop")
+                # Reset last_msg_time to prevent repeated triggering
+                last_msg_time = None
         time.sleep(0.1)
 
 # -----------------------------------------------------------------------------
-# Crear periférico BLE
-adapter_address = list(adapter.Adapter.available())[0].address
-device = peripheral.Peripheral(adapter_address, local_name=MASTER_NAME)
+# Main execution function
+def main():
+    """Main function to set up and run the application."""
+    global m1, last_msg, last_msg_time, interface
 
-device.add_service(srv_id=1, uuid=UART_SERVICE_UUID, primary=True)
-device.add_characteristic(srv_id=1, chr_id=1, uuid=RX_CHAR_UUID,
-                          value=[], notifying=False, flags=['write'], write_callback=rx_handler)
-device.add_characteristic(srv_id=1, chr_id=2, uuid=TX_CHAR_UUID,
-                          value=[], notifying=False, flags=['notify'])
+    # 1. Set up the Tkinter GUI in a separate thread
+    root = tk.Tk()
+    interface = MotorControllerInterface(root)
+    # Start the GUI loop in a daemon thread so it doesn't block the main thread
+    gui_thread = threading.Thread(target=root.mainloop, daemon=True)
+    gui_thread.start()
 
-# -----------------------------------------------------------------------------
-# Inicialización ODrive
-my_drive = None
-m1 = doMotorCalib(my_drive)
-last_msg = None
-last_msg_time = None
+    # 2. Initialize ODrive motor
+    m1 = doMotorCalib()
+    last_msg = None
+    last_msg_time = None
 
-print("------ Slave BLE server ready, awaiting master pairing -------------")
-device.on_connect = UARTDevice.on_connect
+    # 3. Start the watchdog thread
+    watchdog = threading.Thread(target=watchdog_thread, daemon=True)
+    watchdog.start()
 
-# Hilo del watchdog
-t = threading.Thread(target=watchdog_thread, daemon=True)
-t.start()
+    # 4. Create and configure the BLE peripheral
+    try:
+        adapter_address = list(adapter.Adapter.available())[0].address
+        device = peripheral.Peripheral(adapter_address, local_name=MASTER_NAME)
+    except IndexError:
+        print("Error: No Bluetooth adapter found.")
+        return
 
-device.publish()
+    device.add_service(srv_id=1, uuid=UART_SERVICE_UUID, primary=True)
+    device.add_characteristic(
+        srv_id=1, chr_id=1, uuid=RX_CHAR_UUID,
+        value=[], notifying=False, flags=['write'],
+        write_callback=rx_handler
+    )
+    device.add_characteristic(
+        srv_id=1, chr_id=2, uuid=TX_CHAR_UUID,
+        value=[], notifying=False, flags=['notify']
+    )
+
+    device.on_connect = UARTDevice.on_connect
+
+    # 5. Start advertising the BLE service (this is a blocking call)
+    print("------ Slave BLE server ready, awaiting master pairing -------------")
+    device.publish()
+
+# --- Entry point of the script ---
+if __name__ == "__main__":
+    main()
