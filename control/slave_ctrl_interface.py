@@ -15,10 +15,18 @@ UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-CALIB_TIME = 32
+CALIB_TIME = 32 # secs
 FREQ = 0.25  # secs
 WATCHDOG_THRES = FREQ + 0.5
 
+INTERFACE_SIZE = "1600x1000"
+SP_BAR_LENGTH = 800
+# --- NEW: Global variable for font sizes ---
+FONT_SIZE = {
+    "status": 35,
+    "title": 50,
+    "sp_value": 40
+}
 # -----------------------------------------------------------------------------
 # Main Application Class
 # -----------------------------------------------------------------------------
@@ -26,7 +34,7 @@ class ExogloveApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Exoglove ODrive Controller")
-        self.root.geometry("400x250")
+        self.root.geometry(INTERFACE_SIZE)
 
         # --- Shared State Variables ---
         self.m1 = None  # ODrive axis object
@@ -58,32 +66,32 @@ class ExogloveApp:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Status Label
-        self.status_label = ttk.Label(main_frame, text="Status: Initializing...", font=("Arial", 10), wraplength=380)
+        # Status Label 
+        self.status_label = ttk.Label(main_frame, text="Status: Initializing...", font=("Arial", FONT_SIZE["status"]), wraplength=380)
         self.status_label.pack(pady=10, anchor='w')
 
-        # Setpoint Slider
-        ttk.Label(main_frame, text="Setpoint dinámico (0 - 1.5):", font=("Arial", 12)).pack(pady=(10, 0))
+        # Setpoint Slider Title 
+        ttk.Label(main_frame, text="Dynamic velocity setpoint for fingers {0 - 1.5} rev/s:", font=("Arial", FONT_SIZE["title"])).pack(pady=(10, 0))
         slider = ttk.Scale(
             main_frame,
             from_=0.0,
             to=1.5,
             orient="horizontal",
-            length=300,
+            length=SP_BAR_LENGTH,
             variable=self.dynamic_setpoint,
             command=self.update_setpoint_label
         )
-        slider.pack(pady=5)
+        slider.pack(pady=100)
 
-        # Setpoint Value Label
-        self.value_label = ttk.Label(main_frame, text=f"Valor actual: {self.dynamic_setpoint.get():.2f}", font=("Arial", 10))
+        # Setpoint Value Label 
+        self.value_label = ttk.Label(main_frame, text=f"Current value = {self.dynamic_setpoint.get():.2f}", font=("Arial", FONT_SIZE["sp_value"]))
         self.value_label.pack(pady=5)
     
     def update_setpoint_label(self, val):
         """Updates the text label for the slider, called by the slider's command."""
         with self.setpoint_lock:
             current_value = self.dynamic_setpoint.get()
-        self.value_label.config(text=f"Valor actual: {current_value:.2f}")
+        self.value_label.config(text=f"Current value = {current_value:.2f}")
 
     def process_gui_queue(self):
         """Processes messages from the background thread to update the GUI safely."""
@@ -101,10 +109,10 @@ class ExogloveApp:
         Runs all blocking operations: ODrive setup, watchdog, and BLE server.
         """
         try:
-            self.update_gui_status("Buscando ODrive...")
+            self.update_gui_status("Searching for ODrive board...")
             my_drive = odrive.find_any()
             self.m1 = self.configure_odrive(my_drive)
-            self.update_gui_status("ODrive Conectado y Calibrado")
+            self.update_gui_status("ODrive connected & calibrated")
         except Exception as e:
             self.update_gui_status(f"Error ODrive: {e}")
             return
@@ -128,7 +136,7 @@ class ExogloveApp:
                 value=[], notifying=False, flags=['notify']
             )
             
-            self.update_gui_status("Awaiting master pairing...")
+            self.update_gui_status("Awaiting master device pairing...")
             ble_device.publish()
         except IndexError:
             self.update_gui_status("Error: No Bluetooth adapter found.")
@@ -145,7 +153,7 @@ class ExogloveApp:
         with open("odrive_config.json", "r") as json_file:
             config = json.load(json_file)
 
-        # --- THIS IS THE CORRECTED SECTION ---
+        
         # Apply motor config
         motor_cfg = config["axis0"]["motor"]["config"]
         for key, value in motor_cfg.items():
@@ -156,7 +164,6 @@ class ExogloveApp:
         for key, value in enc_cfg.items():
             setattr(axis.encoder.config, key, value)
         axis.encoder.config.pre_calibrated = True
-        # --- END OF CORRECTION ---
 
         # Apply controller config
         ctrl_cfg = config["axis0"]["controller"]["config"]
@@ -170,21 +177,22 @@ class ExogloveApp:
         my_drive.config.dc_max_negative_current = -2.0
         my_drive.config.enable_brake_resistor = False
         
-        self.update_gui_status("Iniciando calibración...")
+        self.update_gui_status("Performing full motor calibration sequence...")
         axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-        # Adjust sleep time based on your actual calibration duration
+        # Adjust calibration duration
         time.sleep(CALIB_TIME) 
         
         if axis.motor.error != 0 or axis.encoder.error != 0 or axis.controller.error != 0:
-            raise RuntimeError(f"Calibration error! M: {axis.motor.error}, E: {axis.encoder.error}, C: {axis.controller.error}")
+            raise RuntimeError(f"Calibration error! Motor_axis_err: {axis.motor.error}, Encoder_err: {axis.encoder.error}, Controller_err: {axis.controller.error}")
 
         axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+        self.update_gui_status("Closed loop control activated")
         return axis
 
     def rx_handler(self, value, options):
         """Callback for BLE messages. Runs in the BLE thread."""
         msg = value.decode("utf-8").strip()
-        print(f"--> Recibido: {msg}")
+        #print(f"--> Received: {msg}") # Translated from Spanish
 
         with self.setpoint_lock:
             setpoint = self.dynamic_setpoint.get()
