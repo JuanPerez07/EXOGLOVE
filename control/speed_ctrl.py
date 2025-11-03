@@ -5,6 +5,8 @@ from odrive.enums import *
 import json
 import csv
 import keyboard
+# GLOBAL VARS
+CONSIGNA = 10 # rev/s
 
 # Conectar con ODrive
 print("🔍 Buscando ODrive...")
@@ -50,8 +52,9 @@ axis.controller.config.vel_gain = ctrl_cfg["kv"]
 axis.controller.config.vel_integrator_gain = ctrl_cfg["ki"]
 axis.controller.config.vel_limit = ctrl_cfg["vel_limit"]
 axis.controller.config.control_mode = ctrl_cfg["control_mode"]
-axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
-
+# input mode --> ramp 
+axis.controller.config.input_mode = INPUT_MODE_VEL_RAMP
+axis.controller.config.vel_ramp_rate = 20 # rev/s
 # Otros ajustes
 my_drive.config.dc_max_negative_current = -2.0
 my_drive.config.enable_brake_resistor = False
@@ -75,13 +78,13 @@ kp = str(ctrl_cfg["kp"])
 kv = str(ctrl_cfg["kv"])
 ki = str(ctrl_cfg["ki"])
 # Esperar input de usuario para comenzar la prueba
-print("Pulse la tecla espacio para comenzar simulacion CONTROL VELOCIDAD")
-while not keyboard.is_pressed('space'):
-    time.sleep(0.1)
+#print("Pulse la tecla espacio para comenzar simulacion CONTROL VELOCIDAD")
+#while not keyboard.is_pressed('space'):
+time.sleep(2)
 
 # Preparar CSV
 CSV_DIR = "csv/"
-filename = f"{CSV_DIR}_VEL_CMD_{kp}_{kv}_{ki}_motor_data.csv"
+filename = f"{CSV_DIR}_VEL_CMD_{CONSIGNA}_{kp}_{kv}_{ki}_motor_data.csv"
 with open(filename, mode='w', newline='') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerow(['Time (s)', 'Position (rev)', 'Velocity (rev/s)'])
@@ -89,15 +92,15 @@ with open(filename, mode='w', newline='') as csv_file:
     # Comenzar a recopilar datos ANTES de enviar la referencia
     print("Comenzando registro de datos...")
     start_time = time.time()
-    duration = 20  # segundos
+    duration = 15  # segundos
     delay_before_ref = 1.0  # segundos antes de enviar primera referencia
 
     last_ref_time = 0
     #speed_command = [0, 0.5, 0, -0.5] objetivo
-    speed_command = [0, 0.8, 0, -0.8]
+    speed_command = [0, CONSIGNA, 0, -CONSIGNA]
     idx = 0
     num_cmds = len(speed_command)
-    interval = 1 # comando cada 1s
+    interval = 2.5 # comando cada 2.5s
 
     while time.time() - start_time < duration:
         elapsed = time.time() - start_time
