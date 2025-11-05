@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import sys
 import numpy as np  # Para generar ticks del eje Y
 
+DIR = 'with_relay/'
 # --- Variable global añadida ---
 SETPOINT = 10
 ARGS = 3 # arguments of the program
@@ -11,7 +12,7 @@ if len(sys.argv) < ARGS or len(sys.argv) > ARGS:
     quit()
 
 # Leer nombre del archivo
-file_str = str(sys.argv[1])
+file_str = DIR + str(sys.argv[1])
 # Boolean for plotting
 enable_plt = int(sys.argv[2])
 
