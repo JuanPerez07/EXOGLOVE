@@ -83,7 +83,7 @@ ki = str(ctrl_cfg["ki"])
 time.sleep(2)
 
 # Preparar CSV
-CSV_DIR = "csv/"
+CSV_DIR = "csv/with_relay/"
 filename = f"{CSV_DIR}_VEL_CMD_{CONSIGNA}_{kp}_{kv}_{ki}_motor_data.csv"
 with open(filename, mode='w', newline='') as csv_file:
     writer = csv.writer(csv_file)
