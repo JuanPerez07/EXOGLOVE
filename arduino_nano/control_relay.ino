@@ -1,81 +1,59 @@
 /*
- * Controla un relé (D7) y un LED (D2) con un botón (D3)
- * - Lógica de 'toggle' (interruptor)
- * - Anti-rebote (debounce) robusto
- * - Corrige el problema de arranque (Active-LOW)
+ * Relay control via button toggle with Arduino Uno
  */
 
 // --- Pines ---
-const int LED_PIN = 2;   // LED de estado externo
-const int BTN_PIN = 3;   // Pulsador
-const int RLY_PIN = 7;   // Módulo de relé
+const int LED_PIN = 2;   // LED to indicate circuit closed
+const int BTN_PIN = 3;   // Toggle button
+const int RLY_PIN = 7;   // Relay signal 
 
-// --- Lógica de Hardware ---
-// (CORREGIDO) El relé es 'Active-LOW': LOW lo enciende
+// RELAY is 'Active-LOW'
 const int RLY_ON = LOW;
 const int RLY_OFF = HIGH;
 
-// El LED es 'Active-HIGH': HIGH lo enciende
+// LED is 'Active-HIGH'
 const int LED_ON = HIGH;
 const int LED_OFF = LOW;
 
-// --- Variables Globales ---
-bool rlyState = false;       // Estado lógico actual (false=OFF, true=ON)
-int btnLastState = HIGH;     // Estado anterior del botón (PULLUP es HIGH)
-long lastDebounceTime = 0;   // Última vez que el botón cambió
-long debounceDelay = 50;     // Tiempo de anti-rebote (50ms)
+// --- Global Vars ---
+bool Serial_ON = false;    // trun true for debugging via Serial Monitor
+bool rlyState = false;     // realy current state
+volatile int btnSt;        // current button state
+int btnLastState = HIGH;   // prev state of button (PULLUP -> HIGH)
 
 void setup() {
-  // Configurar pines de salida
+  // pin config
   pinMode(RLY_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
 
-  // Estado inicial: APAGADO
-  // (Ahora RLY_OFF envía HIGH, manteniendo el relé apagado)
+  // Initial state: OFF
   digitalWrite(RLY_PIN, RLY_OFF);
   digitalWrite(LED_PIN, LED_OFF);
 
-  // Configurar botón con resistencia PULLUP interna
+  // button config as PULLUP resistance
   pinMode(BTN_PIN, INPUT_PULLUP);
   
-  // Opcional: Iniciar Serial para depuración
-  // Serial.begin(9600);
-  // Serial.println("Sistema listo.");
+  // for debugging
+  if(Serial_ON){
+    Serial.begin(9600);
+    Serial.println("System ready.");
+  }
 }
 
 void loop() {
-  // 1. Leer el estado actual del botón
-  int btnReading = digitalRead(BTN_PIN);
-
-  // 2. Comprobar si el estado del botón ha cambiado (inicio de un rebote)
-  if (btnReading != btnLastState) {
-    // Reiniciar el temporizador de anti-rebote
-    lastDebounceTime = millis();
-  }
-
-  // 3. Comprobar si ha pasado el tiempo de anti-rebote
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    
-    // Si el estado se ha estabilizado, comprobar si fue una pulsación
-    // (Buscamos un flanco de bajada: de HIGH a LOW)
-    if (btnReading == LOW && btnLastState == HIGH) {
-      
-      // 4. Invertir el estado lógico (toggle)
-      rlyState = !rlyState; // Invierte true/false
-
-      // 5. Aplicar el nuevo estado al relé y al LED
-      if (rlyState) { // Si rlyState es true (ENCENDIDO)
+  btnSt = digitalRead(BTN_PIN); // read current state
+    if (btnSt == LOW && btnLastState == HIGH) { // button was pressed
+      rlyState = !rlyState; // swap relay state
+      if (rlyState) { // NO - COM circuit is closed
         digitalWrite(RLY_PIN, RLY_ON);
         digitalWrite(LED_PIN, LED_ON);
-        // Serial.println("--> ON");
-      } else { // Si rlyState es false (APAGADO)
+        if(Serial_ON) Serial.println("Relay --> ON | NO >-< COM connected");
+      } else { // NC - COM circuit is closed
         digitalWrite(RLY_PIN, RLY_OFF);
         digitalWrite(LED_PIN, LED_OFF);
-        // Serial.println("--> OFF");
+        if(Serial_ON) Serial.println("Relay --> OFF | NC >-< COM connected");
       }
     }
-  }
-
-  // 6. Guardar el estado actual para la próxima iteración
-  btnLastState = btnReading;
+  // update button state
+  btnLastState = btnSt;
 }
