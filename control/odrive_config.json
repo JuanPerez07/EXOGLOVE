@@ -30,7 +30,7 @@
           "input_mode": 1,
           "kp": 20.0,
           "kv": 0.085,
-          "ki": 0.075
+          "ki": 0.06
         }
       },
       "requested_state": 3,

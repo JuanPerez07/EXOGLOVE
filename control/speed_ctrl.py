@@ -6,7 +6,7 @@ import json
 import csv
 import keyboard
 # GLOBAL VARS
-CONSIGNA = 10 # rev/s
+CONSIGNA = 20 # rev/s
 
 # Conectar con ODrive
 print("🔍 Buscando ODrive...")

@@ -5,7 +5,7 @@ import numpy as np  # Para generar ticks del eje Y
 
 DIR = 'with_relay/'
 # --- Variable global añadida ---
-SETPOINT = 10
+SETPOINT = 20 
 ARGS = 3 # arguments of the program
 if len(sys.argv) < ARGS or len(sys.argv) > ARGS:
     print("Error | Usage: python3 plot.py file.csv enable_plot")
@@ -39,8 +39,8 @@ time_np = np.array(time_data)
 velocity_np = np.array(velocity_data)
 
 # Definir el intervalo de tiempo
-t_inicio = 5.3
-t_fin = 7.75
+t_inicio = 6.1
+t_fin = 7.7
 
 # 1. Filtrar los datos de velocidad dentro del intervalo [5.3, 7.75]
 # Creamos una máscara booleana
@@ -63,11 +63,12 @@ if velocity_interval.size > 0:
         print("Error: La media de la velocidad en el intervalo es 0, no se puede calcular delta.")
 
     # Calcular error en velocidad (ev)
-    ev = SETPOINT - media_intervalo
+    ev = abs(SETPOINT - media_intervalo)
     # Porcentaje de error en velocidad
     ev_percent = (ev/SETPOINT) * 100
     # Mostrar por terminal
     print(f"error en velocidad = {ev_percent} %")
+    print(f"velocidad en estado estacionario = {media_intervalo} rev/s")
 
 else:
     print(f"Advertencia: No se encontraron datos en el intervalo de tiempo [{t_inicio}, {t_fin}]")
