@@ -6,7 +6,7 @@ import json
 import csv
 import keyboard
 # GLOBAL VARS
-CONSIGNA = 20 # rev/s
+CONSIGNA = 10 # rev/s
 
 # Conectar con ODrive
 print("🔍 Buscando ODrive...")
@@ -54,7 +54,7 @@ axis.controller.config.vel_limit = ctrl_cfg["vel_limit"]
 axis.controller.config.control_mode = ctrl_cfg["control_mode"]
 # input mode --> ramp 
 axis.controller.config.input_mode = INPUT_MODE_VEL_RAMP
-axis.controller.config.vel_ramp_rate = 20 # rev/s
+axis.controller.config.vel_ramp_rate = CONSIGNA # must be equal to setpoint (rev/s)
 # Otros ajustes
 my_drive.config.dc_max_negative_current = -2.0
 my_drive.config.enable_brake_resistor = False

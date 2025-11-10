@@ -9,7 +9,20 @@ import odrive
 from odrive.enums import *
 from bluezero import peripheral, adapter, device
 
+# --- NUEVO: Importaciones para control de GPIO ---
+# Usamos pigpio por estabilidad en hilos
+from gpiozero import Button, OutputDevice
+from gpiozero.pins.pigpio import PiGPIOFactory
+
 # --- Configuration Constants ---
+
+# --- NUEVO: Configuración de pines GPIO (numeración BCM) ---
+BTN_PIN = 3  # Pin para el botón (usa INPUT_PULLUP)
+RLY_PIN = 7  # Pin para el relé
+# Lógica del relé (Active-LOW según tu código Arduino)
+RLY_ON = False  # Para OutputDevice(active_high=False), "on" es False
+RLY_OFF = True  # Para OutputDevice(active_high=False), "off" es True
+
 MASTER_NAME = 'NanoESP32_BLE'
 UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -19,13 +32,11 @@ CALIB_TIME = 32 # secs
 FREQ = 0.25  # secs
 WATCHDOG_THRES = FREQ + 0.5
 
-INTERFACE_SIZE = "1600x1000"
-SP_BAR_LENGTH = 800
-SCALE = 0.40
-# --- NEW: Global variable for font sizes ---
+INTERFACE_SIZE = "800x500"
+SP_BAR_LENGTH = 500
 FONT_SIZE = {
-    "status": 12, #*SCALE),
-    "title": 25, #*SCALE),
+    "status": 12, 
+    "title": 25, 
     "sp_value": 20
 }
 # -----------------------------------------------------------------------------
@@ -42,14 +53,21 @@ class ExogloveApp:
         self.last_msg = None
         self.last_msg_time = time.time()
         self.dynamic_setpoint = tk.DoubleVar(value=0.95)
-        self.setpoint_lock = threading.Lock()  # Lock for thread-safe access to the setpoint
+        self.setpoint_lock = threading.Lock()
 
+        # --- NUEVO: Variables de GPIO y estado ---
+        self.relay = None
+        self.button = None
+        
         # --- Threading and Communication ---
         self.shutdown_event = threading.Event()
-        self.message_queue = queue.Queue() # For communication from background thread to GUI
+        self.message_queue = queue.Queue()
         
         # --- Build the GUI ---
         self._build_gui()
+
+        # --- NUEVO: Inicializar GPIO ---
+        self.setup_gpio()
 
         # --- Start background tasks ---
         self.background_thread = threading.Thread(target=self.background_worker)
@@ -68,7 +86,8 @@ class ExogloveApp:
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Status Label 
-        self.status_label = ttk.Label(main_frame, text="Status: Initializing...", font=("Arial", FONT_SIZE["status"]), wraplength=380)
+        # --- MODIFICADO: Texto inicial ---
+        self.status_label = ttk.Label(main_frame, text="Status: Inicializando GPIO...", font=("Arial", FONT_SIZE["status"]), wraplength=380)
         self.status_label.pack(pady=10, anchor='w')
 
         # Setpoint Slider Title 
@@ -88,6 +107,20 @@ class ExogloveApp:
         self.value_label = ttk.Label(main_frame, text=f"Current value = {self.dynamic_setpoint.get():.2f}", font=("Arial", FONT_SIZE["sp_value"]))
         self.value_label.pack(pady=5)
     
+    # --- NUEVO: Método para inicializar GPIO ---
+    def setup_gpio(self):
+        """Inicializa los componentes GPIO (relé y botón)."""
+        try:
+            # Usar 'pigpio' es más robusto para hilos que 'RPi.GPIO'
+            factory = PiGPIOFactory()
+            # active_high=False implementa la lógica RLY_ON = LOW
+            self.relay = OutputDevice(RLY_PIN, active_high=False, initial_value=RLY_OFF, pin_factory=factory)
+            # pull_up=True implementa la lógica INPUT_PULLUP
+            self.button = Button(BTN_PIN, pull_up=True, pin_factory=factory)
+            self.update_gui_status("GPIO listo. Esperando botón...")
+        except Exception as e:
+            self.update_gui_status(f"Error GPIO: {e}. ¿Está 'pigpiod' en ejecución?")
+
     def update_setpoint_label(self, val):
         """Updates the text label for the slider, called by the slider's command."""
         with self.setpoint_lock:
@@ -105,23 +138,50 @@ class ExogloveApp:
         finally:
             self.root.after(100, self.process_gui_queue)
 
+    # --- MODIFICADO: Flujo de trabajo principal ---
     def background_worker(self):
         """
-        Runs all blocking operations: ODrive setup, watchdog, and BLE server.
+        Espera la pulsación del botón para encender el ODrive,
+        luego configura ODrive y el servidor BLE.
         """
-        try:
-            self.update_gui_status("Searching for ODrive board...")
-            my_drive = odrive.find_any()
-            self.m1 = self.configure_odrive(my_drive)
-            self.update_gui_status("ODrive connected & calibrated")
-        except Exception as e:
-            self.update_gui_status(f"Error ODrive: {e}")
+        # 0. Comprobar si el GPIO falló
+        if self.button is None or self.relay is None:
+            self.update_gui_status("Fallo en GPIO. Hilo de trabajo detenido.")
             return
 
-        # Start the watchdog
+        # 1. Esperar la primera pulsación para arrancar
+        try:
+            self.update_gui_status("Listo. Presione el botón físico para encender ODrive.")
+            self.button.wait_for_press()
+        except Exception as e:
+            self.update_gui_status(f"Error esperando botón: {e}")
+            return
+
+        if self.shutdown_event.is_set(): return # App cerrada mientras esperaba
+
+        # 2. Encender ODrive y conectar
+        try:
+            self.relay.on() # Activa el relé (RLY_ON)
+            self.update_gui_status("Relé ON. Esperando 2s que ODrive arranque...")
+            time.sleep(2.0) # Dar tiempo al ODrive para arrancar
+
+            self.update_gui_status("Buscando placa ODrive...")
+            my_drive = odrive.find_any()
+            self.m1 = self.configure_odrive(my_drive)
+            self.update_gui_status("ODrive conectado y calibrado")
+        except Exception as e:
+            self.update_gui_status(f"Error ODrive: {e}. Apagando relé.")
+            self.relay.off()
+            return # Detener el hilo si ODrive falla
+
+        # 3. NUEVO: Reasignar el botón para que ahora sea el botón de APAGADO
+        self.button.when_pressed = self.shutdown_button_handler
+
+        # 4. Iniciar el Watchdog (código original)
         watchdog_thread = threading.Thread(target=self.watchdog_task, daemon=True)
         watchdog_thread.start()
 
+        # 5. Iniciar el servidor BLE (código original)
         try:
             adapter_address = list(adapter.Adapter.available())[0].address
             ble_device = peripheral.Peripheral(adapter_address, local_name=MASTER_NAME)
@@ -137,10 +197,10 @@ class ExogloveApp:
                 value=[], notifying=False, flags=['notify']
             )
             
-            self.update_gui_status("Awaiting master device pairing...")
-            ble_device.publish()
+            self.update_gui_status("Esperando emparejamiento del dispositivo maestro...")
+            ble_device.publish() # Esta llamada es bloqueante
         except IndexError:
-            self.update_gui_status("Error: No Bluetooth adapter found.")
+            self.update_gui_status("Error: No se encontró adaptador Bluetooth.")
         except Exception as e:
             self.update_gui_status(f"Error BLE: {e}")
 
@@ -154,7 +214,6 @@ class ExogloveApp:
         with open("odrive_config.json", "r") as json_file:
             config = json.load(json_file)
 
-        
         # Apply motor config
         motor_cfg = config["axis0"]["motor"]["config"]
         for key, value in motor_cfg.items():
@@ -179,22 +238,20 @@ class ExogloveApp:
         my_drive.config.dc_max_negative_current = -2.0
         my_drive.config.enable_brake_resistor = False
         
-        self.update_gui_status("Performing full motor calibration sequence...")
+        self.update_gui_status("Realizando secuencia de calibración completa...")
         axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-        # Adjust calibration duration
         time.sleep(CALIB_TIME) 
         
         if axis.motor.error != 0 or axis.encoder.error != 0 or axis.controller.error != 0:
-            raise RuntimeError(f"Calibration error! Motor_axis_err: {axis.motor.error}, Encoder_err: {axis.encoder.error}, Controller_err: {axis.controller.error}")
+            raise RuntimeError(f"Error de calibración! Motor_axis_err: {axis.motor.error}, Encoder_err: {axis.encoder.error}, Controller_err: {axis.controller.error}")
 
         axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-        self.update_gui_status("Closed loop control activated")
+        self.update_gui_status("Control en bucle cerrado activado")
         return axis
 
     def rx_handler(self, value, options):
         """Callback for BLE messages. Runs in the BLE thread."""
         msg = value.decode("utf-8").strip()
-        #print(f"--> Received: {msg}") # Translated from Spanish
 
         with self.setpoint_lock:
             setpoint = self.dynamic_setpoint.get()
@@ -227,15 +284,33 @@ class ExogloveApp:
                     self.last_msg_time = None 
             time.sleep(0.1)
 
+    # --- NUEVO: Callback para el botón de apagado ---
+    def shutdown_button_handler(self):
+        """
+        Callback para el botón DESPUÉS de que el sistema esté funcionando.
+        Inicia un apagado limpio.
+        """
+        print("Botón de apagado presionado. Cerrando aplicación.")
+        # Como esto se ejecuta en el hilo de gpiozero, debemos
+        # programar el cierre en el hilo principal de la GUI.
+        self.root.after(0, self.on_closing)
+
+    # --- MODIFICADO: Asegura el apagado del relé ---
     def on_closing(self):
         """Handles graceful shutdown when the window is closed."""
-        print("Closing application...")
+        print("Cerrando aplicación...")
         self.shutdown_event.set()
         if self.m1:
             try:
                 self.m1.requested_state = AXIS_STATE_IDLE
             except Exception as e:
-                print(f"Could not set ODrive to idle: {e}")
+                print(f"No se pudo poner ODrive en IDLE: {e}")
+        
+        # --- NUEVO: Apagar el relé al cerrar ---
+        if self.relay:
+            print("Apagando el relé del ODrive.")
+            self.relay.off() # Equivalente a RLY_OFF
+
         self.root.destroy()
 
 # -----------------------------------------------------------------------------

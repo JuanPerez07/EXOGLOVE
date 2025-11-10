@@ -5,7 +5,7 @@ import numpy as np  # Para generar ticks del eje Y
 
 DIR = 'with_relay/'
 # --- Variable global añadida ---
-SETPOINT = 20 
+SETPOINT = 10 
 ARGS = 3 # arguments of the program
 if len(sys.argv) < ARGS or len(sys.argv) > ARGS:
     print("Error | Usage: python3 plot.py file.csv enable_plot")
