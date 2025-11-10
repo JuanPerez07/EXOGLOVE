@@ -17,8 +17,8 @@ from gpiozero.pins.pigpio import PiGPIOFactory
 # --- Configuration Constants ---
 
 # --- NUEVO: Configuración de pines GPIO (numeración BCM) ---
-BTN_PIN = 3  # Pin para el botón (usa INPUT_PULLUP)
-RLY_PIN = 7  # Pin para el relé
+BTN_PIN = 3  # button - INPUT_PULLUP (3 del cabezal de RPi5)
+RLY_PIN = 2  # relay (5 del cabezal de RPi5)
 # Lógica del relé (Active-LOW según tu código Arduino)
 RLY_ON = False  # Para OutputDevice(active_high=False), "on" es False
 RLY_OFF = True  # Para OutputDevice(active_high=False), "off" es True
@@ -319,4 +319,5 @@ class ExogloveApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = ExogloveApp(root)
+
     root.mainloop()
