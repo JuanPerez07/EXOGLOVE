@@ -26,6 +26,7 @@
         "config":{
           "vel_limit": 50.0, 
           "control_mode": 2,
+          "vel_ramp_rate": 20,
           "input_filter_bandwidth": 20.0,
           "input_mode": 1,
           "kp": 20.0,

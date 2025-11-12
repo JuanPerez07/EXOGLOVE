@@ -4,9 +4,8 @@ import sys
 import numpy as np  # Para generar ticks del eje Y
 
 DIR = 'with_relay/'
-# --- Variable global añadida ---
-SETPOINT = 10 
-ARGS = 3 # arguments of the program
+# --- Variable global añadida --- 
+ARGS = 4 # arguments of the program
 if len(sys.argv) < ARGS or len(sys.argv) > ARGS:
     print("Error | Usage: python3 plot.py file.csv enable_plot")
     quit()
@@ -15,6 +14,7 @@ if len(sys.argv) < ARGS or len(sys.argv) > ARGS:
 file_str = DIR + str(sys.argv[1])
 # Boolean for plotting
 enable_plt = int(sys.argv[2])
+SETPOINT = int(sys.argv[3])
 
 # Leer los datos desde el archivo CSV
 time_data = []

@@ -6,7 +6,7 @@ import json
 import csv
 import keyboard
 # GLOBAL VARS
-CONSIGNA = 10 # rev/s
+CONSIGNA = 20 # rev/s
 
 # Conectar con ODrive
 print("🔍 Buscando ODrive...")
@@ -54,7 +54,7 @@ axis.controller.config.vel_limit = ctrl_cfg["vel_limit"]
 axis.controller.config.control_mode = ctrl_cfg["control_mode"]
 # input mode --> ramp 
 axis.controller.config.input_mode = INPUT_MODE_VEL_RAMP
-axis.controller.config.vel_ramp_rate = CONSIGNA # must be equal to setpoint (rev/s)
+axis.controller.config.vel_ramp_rate = ctrl_cfg["vel_ramp_rate"] # ideally equal to setpoint (rev/s²)
 # Otros ajustes
 my_drive.config.dc_max_negative_current = -2.0
 my_drive.config.enable_brake_resistor = False
@@ -84,7 +84,7 @@ time.sleep(2)
 
 # Preparar CSV
 CSV_DIR = "csv/with_relay/"
-filename = f"{CSV_DIR}_VEL_CMD_{CONSIGNA}_{kp}_{kv}_{ki}_motor_data.csv"
+filename = f"{CSV_DIR}_VEL_CMD_{CONSIGNA}_{kv}_{ki}_motor_data.csv"
 with open(filename, mode='w', newline='') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerow(['Time (s)', 'Position (rev)', 'Velocity (rev/s)'])
