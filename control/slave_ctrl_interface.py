@@ -8,7 +8,7 @@ from tkinter import ttk
 import odrive
 from odrive.enums import *
 from bluezero import peripheral, adapter, device
-
+from relay_ctrl import RelayControl # to supply power to the ODrive board
 # --- Configuration Constants ---
 MASTER_NAME = 'NanoESP32_BLE'
 UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -36,7 +36,13 @@ class ExogloveApp:
         self.root = root
         self.root.title("Exoglove ODrive Controller")
         self.root.geometry(INTERFACE_SIZE)
-
+        # --- Relay control obj ---
+        try:
+            self.relay = RelayControl()
+        except Exception as e:
+            print(f"Relay not working due to exception {e}")
+            self.update_gui_status("WARNING: RELAY not avalaible -> power supply may be off")
+            self.relay = None
         # --- Shared State Variables ---
         self.m1 = None  # ODrive axis object
         self.last_msg = None
@@ -236,6 +242,8 @@ class ExogloveApp:
                 self.m1.requested_state = AXIS_STATE_IDLE
             except Exception as e:
                 print(f"Could not set ODrive to idle: {e}")
+        if self.relay is not None:
+            self.relay.set(False) # turn off power        
         self.root.destroy()
 
 # -----------------------------------------------------------------------------

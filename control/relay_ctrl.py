@@ -25,19 +25,23 @@ class RelayControl:
         # event assignment
         self.button.when_pressed = self.button_pressed
         # update status of relay
-        self.toggle_relay()
+        self.toggle()
     
-    def toggle_relay(self):
+    def toggle(self):
         self.relay.on() if self.is_ON else self.relay.off()
 
     def button_pressed(self):
         self.is_ON = not self.is_ON
-        self.toggle_relay() # update relay 
+        self.toggle() # update relay 
+    
+    def set(self, st):
+        self.is_ON = st
+        self.toggle()    
     
     # main loop event
     def run (self):
         pause()
-    
+"""    
 # MAIN EXECUTION BLOCK
 if __name__ == "__main__":
     try:
@@ -52,4 +56,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
-
+"""
