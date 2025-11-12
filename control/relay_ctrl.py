@@ -3,64 +3,48 @@
 Relay control using gpiozero on Raspberry Pi.
 Supports active-low relay modules (most common).
 """
-
-from gpiozero import OutputDevice
+from gpiozero import Button, OutputDevice 
 from signal import pause
 import sys
 import time
 
-# === CONFIGURATION ===
-RELAY_PIN = 17  # BCM pin number (change to your wiring)
-ACTIVE_HIGH = False  # Most relay boards are active-low
+# PINOUT CONFIG
+BUTTON_PIN = 3
+RELAY_PIN = 4
+# global vars
+is_ON = False # status 
+ACTIVE_HIGH = False # relay is low-active
 
-try:
-    # Create relay object
-    relay = OutputDevice(RELAY_PIN, active_high=ACTIVE_HIGH, initial_value=False)
-except Exception as e:
-    print(f"Error initializing relay on GPIO {RELAY_PIN}: {e}")
-    sys.exit(1)
+# toggle relay
+def update_relay(st):
+    global relay
+    relay.on() if st else relay.off()
 
-def turn_on():
-    """Turn the relay ON."""
-    relay.on()
-    print("Relay ON")
+# behavoiur when button pressed
+def button_pressed():
+    global is_ON
+    #print("Button was pressed!")
+    is_ON = not is_ON
+    # update relay status
+    update_relay(is_ON)
+    
 
-def turn_off():
-    """Turn the relay OFF."""
-    relay.off()
-    print("Relay OFF")
-
-def toggle():
-    """Toggle relay state."""
-    if relay.value == 0:
-        turn_on()
-    else:
-        turn_off()
-
+# MAIN EXECUTION BLOCK
 if __name__ == "__main__":
+    global relay
     try:
-        print("Relay control started. Commands:")
-        print("  1 - ON")
-        print("  0 - OFF")
-        print("  t - TOGGLE")
-        print("  q - QUIT")
-
-        while True:
-            cmd = input("Enter command: ").strip().lower()
-            if cmd == "1":
-                turn_on()
-            elif cmd == "0":
-                turn_off()
-            elif cmd == "t":
-                toggle()
-            elif cmd == "q":
-                break
-            else:
-                print("Invalid command. Use 1, 0, t, or q.")
-
+        # create both relay and button objects
+        relay = OutputDevice(RELAY_PIN, active_high=ACTIVE_HIGH, initial_value=True)
+        button = Button(BUTTON_PIN, pull_up=True) # button wired to GND
+        ## attach event handlers
+        button.when_pressed = button_pressed
+        
+        # keep the program running for events
+        pause()
     except KeyboardInterrupt:
-        print("\nInterrupted by user.")
-    finally:
-        # Ensure relay is OFF before exit
-        turn_off()
-        print("Relay control stopped.")
+        print("\nProgram stopped by user")
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
