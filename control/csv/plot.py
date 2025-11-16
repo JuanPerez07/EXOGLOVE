@@ -14,7 +14,7 @@ if len(sys.argv) < ARGS or len(sys.argv) > ARGS:
 file_str = str(sys.argv[1])
 # Boolean for plotting
 enable_plt = int(sys.argv[2])
-SETPOINT = int(file_str.split('_')[4])  # Extraer el setpoint del nombre del archivo
+SETPOINT = int(file_str.split('_')[5])  # Extraer el setpoint del nombre del archivo
 
 # Leer los datos desde el archivo CSV
 time_data = []

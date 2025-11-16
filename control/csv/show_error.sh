@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-dir="with_relay"
+dir="current_limit_10A"
 
 # enable nullglob so the loop simply does nothing if no CSVs are found
 shopt -s nullglob
