@@ -6,8 +6,8 @@
          "resistance_calib_max_voltage": 2.0,
          "torque_constant": 0.031,
          "motor_type": 0,
-         "current_lim": 10.0,
-         "requested_current_range": 25.0,
+         "current_lim": 25.0,
+         "requested_current_range": 30.0,
          "calibration_current": 5.0,
          "current_control_bandwidth": 100.0
         }

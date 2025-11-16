@@ -5,16 +5,16 @@ import numpy as np  # Para generar ticks del eje Y
 
 DIR = 'with_relay/'
 # --- Variable global añadida --- 
-ARGS = 4 # arguments of the program
+ARGS = 3 # arguments of the program
 if len(sys.argv) < ARGS or len(sys.argv) > ARGS:
     print("Error | Usage: python3 plot.py file.csv enable_plot")
     quit()
 
 # Leer nombre del archivo
-file_str = DIR + str(sys.argv[1])
+file_str = str(sys.argv[1])
 # Boolean for plotting
 enable_plt = int(sys.argv[2])
-SETPOINT = int(sys.argv[3])
+SETPOINT = int(file_str.split('_')[4])  # Extraer el setpoint del nombre del archivo
 
 # Leer los datos desde el archivo CSV
 time_data = []
@@ -48,6 +48,7 @@ interval_mask = (time_np >= t_inicio) & (time_np <= t_fin)
 # Aplicamos la máscara a los datos de velocidad
 velocity_interval = velocity_np[interval_mask]
 
+print(f"----- Calculating metrics for file {file_str} -------------------------------------")
 # 2. Calcular las métricas solicitadas
 if velocity_interval.size > 0:
     # Calcular media y máximo del intervalo
