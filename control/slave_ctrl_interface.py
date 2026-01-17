@@ -8,7 +8,7 @@ from tkinter import ttk
 import odrive
 from odrive.enums import *
 from bluezero import peripheral, adapter, device
-
+from relay_ctrl import RelayControl # to supply power to the ODrive board
 # --- Configuration Constants ---
 MASTER_NAME = 'NanoESP32_BLE'
 UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -21,11 +21,12 @@ WATCHDOG_THRES = FREQ + 0.5
 
 INTERFACE_SIZE = "1600x1000"
 SP_BAR_LENGTH = 800
+SCALE = 0.40
 # --- NEW: Global variable for font sizes ---
 FONT_SIZE = {
-    "status": 35,
-    "title": 50,
-    "sp_value": 40
+    "status": 12, #*SCALE),
+    "title": 25, #*SCALE),
+    "sp_value": 20
 }
 # -----------------------------------------------------------------------------
 # Main Application Class
@@ -35,7 +36,13 @@ class ExogloveApp:
         self.root = root
         self.root.title("Exoglove ODrive Controller")
         self.root.geometry(INTERFACE_SIZE)
-
+        # --- Relay control obj ---
+        try:
+            self.relay = RelayControl()
+        except Exception as e:
+            print(f"Relay not working due to exception {e}")
+            self.update_gui_status("WARNING: RELAY not avalaible -> power supply may be off")
+            self.relay = None
         # --- Shared State Variables ---
         self.m1 = None  # ODrive axis object
         self.last_msg = None
@@ -71,11 +78,11 @@ class ExogloveApp:
         self.status_label.pack(pady=10, anchor='w')
 
         # Setpoint Slider Title 
-        ttk.Label(main_frame, text="Dynamic velocity setpoint for fingers {0 - 1.5} rev/s:", font=("Arial", FONT_SIZE["title"])).pack(pady=(10, 0))
+        ttk.Label(main_frame, text="Dynamic velocity setpoint for fingers {0 - 40} rev/s:", font=("Arial", FONT_SIZE["title"])).pack(pady=(10, 0))
         slider = ttk.Scale(
             main_frame,
             from_=0.0,
-            to=1.5,
+            to=40,
             orient="horizontal",
             length=SP_BAR_LENGTH,
             variable=self.dynamic_setpoint,
@@ -172,7 +179,8 @@ class ExogloveApp:
         axis.controller.config.vel_integrator_gain = ctrl_cfg["ki"]
         axis.controller.config.vel_limit = ctrl_cfg["vel_limit"]
         axis.controller.config.control_mode = ctrl_cfg["control_mode"]
-        axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+        axis.controller.config.input_mode = INPUT_MODE_VEL_RAMP
+        axis.controller.config.vel_ramp_rate = 20.0
         
         my_drive.config.dc_max_negative_current = -2.0
         my_drive.config.enable_brake_resistor = False
@@ -234,6 +242,8 @@ class ExogloveApp:
                 self.m1.requested_state = AXIS_STATE_IDLE
             except Exception as e:
                 print(f"Could not set ODrive to idle: {e}")
+        if self.relay is not None:
+            self.relay.set(False) # turn off power        
         self.root.destroy()
 
 # -----------------------------------------------------------------------------

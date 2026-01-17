@@ -1,7 +1,0 @@
-Kp = 2
-Kv = 1.1
-Ki = 0
-The reference depends on cable length and tension
-Position reference of 6 while in closed loop control proved to be good enough for wrist supination
-Tryouts where done with no human load on the exoskeleton
-
