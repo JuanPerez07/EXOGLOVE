@@ -6,7 +6,7 @@
          "resistance_calib_max_voltage": 2.0,
          "torque_constant": 0.031,
          "motor_type": 0,
-         "current_lim": 25.0,
+         "current_lim": 18.0,
          "requested_current_range": 30.0,
          "calibration_current": 5.0,
          "current_control_bandwidth": 100.0
@@ -26,7 +26,7 @@
         "config":{
           "vel_limit": 50.0, 
           "control_mode": 2,
-          "vel_ramp_rate": 20,
+          "vel_ramp_rate": 25,
           "input_filter_bandwidth": 20.0,
           "input_mode": 1,
           "kp": 20.0,
@@ -42,4 +42,3 @@
       "startup_sensorless_control": false
     }
   }
-  

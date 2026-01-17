@@ -5,8 +5,6 @@ Supports active-low relay modules (most common).
 """
 from gpiozero import Button, OutputDevice 
 from signal import pause
-import sys
-import time
 
 class RelayControl:
     # PINOUT CONFIG
@@ -41,19 +39,3 @@ class RelayControl:
     # main loop event
     def run (self):
         pause()
-"""    
-# MAIN EXECUTION BLOCK
-if __name__ == "__main__":
-    try:
-        # create relay controller obj
-        renezz = RelayControl()
-        # keep the program running for events
-        renezz.run()
-
-    except KeyboardInterrupt:
-        print("\nProgram stopped by user")
-        sys.exit(0)
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-"""

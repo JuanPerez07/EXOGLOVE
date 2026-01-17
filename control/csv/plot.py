@@ -37,7 +37,7 @@ with open(file_str, mode='r') as file:
 # Convertir listas a arrays de NumPy para filtrar fácilmente
 time_np = np.array(time_data)
 velocity_np = np.array(velocity_data)
-
+v_max = max(abs(velocity_np))
 # Definir el intervalo de tiempo
 t_inicio = 6.1
 t_fin = 7.7
@@ -59,7 +59,7 @@ if velocity_interval.size > 0:
     if media_intervalo != 0:
         delta = 100 * ((valor_max_intervalo - media_intervalo) / media_intervalo)
         # Mostrar por terminal
-        print(f"sobreoscilacion = {delta} %")
+        print(f"sobreoscilacion = {delta} %") if delta > 0 and delta < 100 else print("sobreoscilacion mal calculada")
     else:
         print("Error: La media de la velocidad en el intervalo es 0, no se puede calcular delta.")
 
@@ -68,9 +68,9 @@ if velocity_interval.size > 0:
     # Porcentaje de error en velocidad
     ev_percent = (ev/SETPOINT) * 100
     # Mostrar por terminal
-    print(f"error en velocidad = {ev_percent} %")
+    print(f"error en velocidad = {ev_percent} %") if ev_percent < 100 else print("error en velocidad mal calculado")
     print(f"velocidad en estado estacionario = {media_intervalo} rev/s")
-
+    print(f"velocidad maxima en toda la sim = {v_max} rev/s")
 else:
     print(f"Advertencia: No se encontraron datos en el intervalo de tiempo [{t_inicio}, {t_fin}]")
 
