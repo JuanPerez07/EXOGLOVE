@@ -1,3 +1,7 @@
+"""
+This module implements the main vision system for measuring wrist range of motion (ROM) using a single camera. 
+It detects colored markers on reference points, calculates angles, and provides real-time feedback.
+"""
 import cv2 as cv
 import numpy as np
 import os
