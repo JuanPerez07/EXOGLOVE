@@ -1,0 +1,18 @@
+# System-level dependencies (Debian/Ubuntu/Raspberry Pi OS):
+# Run the following command to install required system libraries:
+# sudo apt-get install python3-tk libglib2.0-dev libdbus-1-dev
+#
+# Create a virtual environment:
+# python3 -m venv exoglove_env
+#
+# Install external dependencies:
+# source exoglove_env/bin/activate
+# pip install -r requirements.txt
+#
+bluezero
+gpiozero
+keyboard
+matplotlib
+numpy
+odrive
+opencv-python

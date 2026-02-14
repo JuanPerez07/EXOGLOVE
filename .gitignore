@@ -6,3 +6,6 @@ control/csv/*.txt
 control/csv/velocity_control_models.py
 control/csv/*md
 control/__pycache__/
+
+vision/vision_env
+vision/params
