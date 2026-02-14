@@ -6,6 +6,7 @@ the reprojection error to measure calibration accuracy.
 import cv2 # requiered installation
 import numpy as np # requiered installation
 import glob
+import os
 
 # dataset directory and image format
 DATASET_DIR = 'dataset'
@@ -66,6 +67,7 @@ def calculate_params(images):
         extrinsics.append(T)
 
     # Save parameters to files
+    os.makedirs(PARAM_DIR, exist_ok=True)
     np.save(PARAM_DIR + "camera_matrix.npy", camera_matrix)
     np.save(PARAM_DIR + "dist_coeffs.npy", dist_coeffs)
     np.save(PARAM_DIR + "extrinsics.npy", extrinsics)
@@ -81,6 +83,7 @@ def compute_error(objpoints, imgpoints):
     extrinsics = np.load(PARAM_DIR + "extrinsics.npy", allow_pickle=True)
 
     total_error = 0
+    total_points = 0
     for i in range(len(objpoints)):
         R = extrinsics[i][:, :3]  # Extract rotation matrix
         t = extrinsics[i][:, 3]   # Extract translation vector
@@ -88,10 +91,11 @@ def compute_error(objpoints, imgpoints):
 
         # Project 3D points back onto the 2D image plane
         imgpoints2, _ = cv2.projectPoints(objpoints[i], rvec, t, camera_matrix, dist_coeffs)
-        error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)  # Compute error
-        total_error += error
+        error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2)
+        total_error += error**2
+        total_points += len(imgpoints2)
 
-    mean_error = total_error / len(objpoints)  # Compute mean reprojection error
+    mean_error = np.sqrt(total_error / total_points)  # Compute RMS reprojection error
     return mean_error
 
 if __name__ == '__main__':
@@ -107,4 +111,4 @@ if __name__ == '__main__':
 
     # Compute the Mean Reproyection Error
     error = compute_error(img_points, obj_points)
-    print(f" Mean Reprojection Error: {error}")
+    print(f" RMS Reprojection Error: {error}")
