@@ -5,23 +5,27 @@ It detects colored markers on reference points, calculates angles, and provides 
 import cv2 as cv
 import numpy as np
 import os
+import argparse
 from datetime import datetime
 # Source directory for intrinsic and extrinsic parameters
 PARAM_DIR = "params/"
 
+# Setpoint of the simulation 
+SP = 25
+
 # Select active colors
-SELECTED_ORIGIN_COLOR = 'green'
+SELECTED_ORIGIN_COLOR = 'red'
 SELECTED_MOBILE_COLOR = 'yellow'
 
 # Directory to save images
-IMG_DIR = "TIMESTAMP_IMG"
+IMG_DIR = "test/supination" # according to the physical interface
 
 # HSV Color Ranges configuration
 HSV_RANGES = {
     'origin': {
         'yellow': {'min': np.array([20, 100, 100]), 'max': np.array([40, 255, 255])},
         'red': {'min': np.array([0, 100, 100]), 'max': np.array([10, 255, 255])},
-        'green': {'min': np.array([40, 100, 100]), 'max': np.array([80, 255, 255])},
+        'green': {'min': np.array([50, 100, 50]), 'max': np.array([80, 255, 255])},
         'blue': {'min': np.array([100, 150, 0]), 'max': np.array([140, 255, 255])}
     },
     'mobile': {
@@ -75,8 +79,8 @@ def segment_hsv(frame_hsv, lower, upper, erode=False):
     """ Segments the image based on color range and finds the centroid. """
     mask = cv.inRange(frame_hsv, lower, upper)
     if erode:
-        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
-        mask = cv.erode(mask, kernel, iterations=1)
+        kernel = cv.getStructuringElement(cv.MORPH_CROSS, (6, 6))
+        mask = cv.erode(mask, kernel, iterations=3)
     return get_centroid(mask), mask
 
 def calculate_angle(pt_origin, pt_mobile, K, D):
@@ -167,12 +171,19 @@ def main():
             # Save image
             os.makedirs(IMG_DIR, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = os.path.join(IMG_DIR, f"img_{timestamp}.png")
+            filename = os.path.join(IMG_DIR, f"{SP}_img_{timestamp}.png")
             cv.imwrite(filename, frame_raw)
             print(f"Imagen guardada: {filename}")
+            if angle_delta is not None:
+                print(f"Delta de Angulo: {angle_delta:.2f} grados")
+
 
     cap.release()
     cv.destroyAllWindows()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-sp', type=float, default=25.0, help='Setpoint of the simulation')
+    args = parser.parse_args()
+    SP = args.sp
     main()
