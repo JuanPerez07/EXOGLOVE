@@ -4,10 +4,10 @@ import odrive
 from odrive.enums import *
 import json
 import csv
-import keyboard
+
 # GLOBAL VARS
-CONSIGNA = 30 # rev/s
-CSV_DIR = "csv/current_limit_15A/"
+CONSIGNA = 20 # rev/s
+CSV_DIR = "csv/current_limit_12A/"
 # Conectar con ODrive
 print("🔍 Buscando ODrive...")
 my_drive = None
@@ -84,7 +84,7 @@ vrr = str(ctrl_cfg["vel_ramp_rate"])
 time.sleep(2)
 
 # Preparar CSV
-filename = f"{CSV_DIR}_VEL_CMD_{CONSIGNA}_VRR_{vrr}_{kv}_{ki}_motor_data.csv"
+filename = f"{CSV_DIR}VEL_CMD_{CONSIGNA}_VRR_{vrr}_{kv}_{ki}_motor_data.csv"
 with open(filename, mode='w', newline='') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerow(['Time (s)', 'Position (rev)', 'Velocity (rev/s)'])
