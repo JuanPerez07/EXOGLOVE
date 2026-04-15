@@ -14,7 +14,10 @@ while my_drive is None:
     my_drive = odrive.find_any()
 print("✅ ODrive conectado")
 
+# axis0 is the motor linked to the wrist 
 axis = my_drive.axis0
+# axis1 is the motor linked to the fingers
+# axis1 = my_drive.axis1
 
 # Leer configuración JSON
 with open("odrive_config.json", "r") as json_file:
@@ -51,7 +54,10 @@ axis.controller.config.vel_gain = ctrl_cfg["kv"]
 axis.controller.config.vel_integrator_gain = ctrl_cfg["ki"]
 axis.controller.config.vel_limit = ctrl_cfg["vel_limit"]
 axis.controller.config.control_mode = ctrl_cfg["control_mode"]
-axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+axis.controller.config.input_mode = ctrl_cfg["input_mode"]
+
+if(ctrl_cfg["control_mode"] == 2): # Control en velocidad
+    axis.controller.config.vel_ramp_rate = ctrl_cfg["vel_ramp_rate"]
 
 # Otros ajustes
 my_drive.config.dc_max_negative_current = -2.0
