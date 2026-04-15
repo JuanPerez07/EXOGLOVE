@@ -131,7 +131,7 @@ class ExogloveApp:
         self.value_label_axis0.pack(pady=5)
 
         # ========== AXIS1 (Hand) Setpoint Slider ==========
-        ttk.Label(main_frame, text="Axis1 (Hand) - Dynamic velocity setpoint {0 - 5} rev/s:", font=("Arial", FONT_SIZE["title"])).pack(pady=(20, 0))
+        ttk.Label(main_frame, text="Axis1 (Hand) - Dynamic position setpoint {0 - 5} rev:", font=("Arial", FONT_SIZE["title"])).pack(pady=(20, 0))
         slider_axis1 = ttk.Scale(
             main_frame,
             from_=0.0,
