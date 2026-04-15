@@ -44,6 +44,11 @@ class ExogloveApp:
         self.root = root
         self.root.title("Exoglove ODrive Controller")
         self.root.geometry(INTERFACE_SIZE)
+        
+        # --- Threading and Communication (Initialize FIRST) ---
+        self.shutdown_event = threading.Event()
+        self.message_queue = queue.Queue() # For communication from background thread to GUI
+        
         # --- Relay control obj ---
         try:
             self.relay = RelayControl()
@@ -68,10 +73,6 @@ class ExogloveApp:
         self.axis1_status = "INITIALIZING"
         self.axis0_indicator = None
         self.axis1_indicator = None
-
-        # --- Threading and Communication ---
-        self.shutdown_event = threading.Event()
-        self.message_queue = queue.Queue() # For communication from background thread to GUI
         
         # --- Build the GUI ---
         self._build_gui()
