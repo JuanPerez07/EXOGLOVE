@@ -28,7 +28,49 @@
           "control_mode": 2,
           "vel_ramp_rate": 20,
           "input_filter_bandwidth": 20.0,
-          "input_mode": 1,
+          "input_mode": 2,
+          "kp": 20.0,
+          "kv": 0.085,
+          "ki": 0.06
+        }
+      },
+      "requested_state": 3,
+      "startup_motor_calibration": true,
+      "startup_encoder_index_search": false,
+      "startup_encoder_offset_calibration": true,
+      "startup_closed_loop_control": true,
+      "startup_sensorless_control": false
+    },
+    "axis1": {
+      "motor": {
+        "config": {
+         "pole_pairs": 7,
+         "resistance_calib_max_voltage": 2.0,
+         "torque_constant": 0.031,
+         "motor_type": 0,
+         "current_lim": 12.0,
+         "requested_current_range": 30.0,
+         "calibration_current": 5.0,
+         "current_control_bandwidth": 100.0
+        }
+      },
+      "encoder": {
+        "config": {
+          "cpr": 20480,
+          "mode": 0,
+          "calib_scan_distance": 150,
+          "pre_calibrated": false,
+          "bandwidth": 100,
+          "use_index": true
+        }
+      },
+      "controller": {
+        "config":{
+          "vel_limit": 50.0, 
+          "control_mode": 3,
+          "vel_ramp_rate": 20,
+          "input_filter_bandwidth": 20.0,
+          "input_mode": 5,
           "kp": 20.0,
           "kv": 0.085,
           "ki": 0.06
@@ -41,4 +83,4 @@
       "startup_closed_loop_control": true,
       "startup_sensorless_control": false
     }
-  }
+}
