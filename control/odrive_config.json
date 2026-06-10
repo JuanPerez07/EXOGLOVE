@@ -70,17 +70,17 @@
           "control_mode": 3,
           "vel_ramp_rate": 20,
           "input_filter_bandwidth": 20.0,
-          "input_mode": 5,
+          "input_mode": 3,
           "kp": 20.0,
           "kv": 0.085,
           "ki": 0.06
         }
       },
       "requested_state": 3,
-      "startup_motor_calibration": true,
+      "startup_motor_calibration": false,
       "startup_encoder_index_search": false,
-      "startup_encoder_offset_calibration": true,
-      "startup_closed_loop_control": true,
+      "startup_encoder_offset_calibration": false,
+      "startup_closed_loop_control": false,
       "startup_sensorless_control": false
     }
 }

@@ -7,7 +7,7 @@ import csv
 
 # GLOBAL VARS
 CONSIGNA = 1 # rev
-CSV_DIR = "csv/current_limit_12A/"
+CSV_DIR = "csv/hand_motor/"
 
 # Conectar con ODrive
 print("🔍 Buscando ODrive...")
@@ -60,9 +60,9 @@ axis.controller.config.input_mode = ctrl_cfg["input_mode"]
 
 # Configuración de Trajectory Trapezoidal (necesario si input_mode es 5)
 # Puedes ajustar estos valores según la agresividad de movimiento que desees
-axis.trap_traj.config.vel_limit = 10.0      # rev/s
-axis.trap_traj.config.accel_limit = 5.0     # rev/s^2
-axis.trap_traj.config.decel_limit = 5.0     # rev/s^2
+#axis.trap_traj.config.vel_limit = 10.0      # rev/s
+#axis.trap_traj.config.accel_limit = 5.0     # rev/s^2
+#axis.trap_traj.config.decel_limit = 5.0     # rev/s^2
 
 # Otros ajustes
 my_drive.config.dc_max_negative_current = -2.0
