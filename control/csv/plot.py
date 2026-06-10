@@ -2,18 +2,21 @@ import csv
 import matplotlib.pyplot as plt
 import sys
 import numpy as np  # Para generar ticks del eje Y
+import os
 
-DIR = 'with_relay/'
 # --- Variable global añadida --- 
-ARGS = 3 # arguments of the program
+ARGS = 4 # arguments of the program
 if len(sys.argv) < ARGS or len(sys.argv) > ARGS:
-    print("Error | Usage: python3 plot.py file.csv enable_plot")
+    print("Error | Usage: python3 plot.py dir file.csv enable_plot_boolean")
     quit()
 
-# Leer nombre del archivo
-file_str = str(sys.argv[1])
+# Leer parámetros
+directory = str(sys.argv[1])
+file_name = str(sys.argv[2])
 # Boolean for plotting
-enable_plt = int(sys.argv[2])
+enable_plt = int(sys.argv[3])
+# Construir ruta completa del archivo
+file_str = os.path.join(directory, file_name)
 SETPOINT = int(file_str.split('_')[5])  # Extraer el setpoint del nombre del archivo
 
 # Leer los datos desde el archivo CSV
