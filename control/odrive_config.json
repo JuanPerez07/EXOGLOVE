@@ -71,9 +71,9 @@
           "vel_ramp_rate": 20,
           "input_filter_bandwidth": 20.0,
           "input_mode": 3,
-          "kp": 20.0,
-          "kv": 0.085,
-          "ki": 0.06
+          "kp": 40.0,
+          "kv": 0.05,
+          "ki": 0.0
         }
       },
       "requested_state": 3,

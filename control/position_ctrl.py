@@ -6,7 +6,7 @@ import json
 import csv
 
 # GLOBAL VARS
-CONSIGNA = 1 # rev
+CONSIGNA = 1.0 # rev
 CSV_DIR = "csv/hand_motor/"
 
 # Conectar con ODrive
