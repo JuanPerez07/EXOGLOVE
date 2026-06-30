@@ -9,3 +9,4 @@ control/__pycache__/
 
 vision/vision_env
 vision/params
+vision/test/fingerFlexion/scaled_images/*
