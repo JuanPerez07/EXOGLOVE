@@ -4,15 +4,19 @@ Exoglove es un proyecto de prótesis/guante exoesquelético orientado a la rehab
 
 ## Alcance del proyecto
 
-El proyecto integra:
+El proyecto Exoglove integra:
 - control de actuadores mediante ODrive y comunicación BLE,
 - firmware para microcontroladores Arduino Nano,
 - procesamiento de visión para estimación de postura y movimiento de la mano,
 - herramientas de validación, registro de datos y generación de gráficas,
 - archivos CAD y recursos auxiliares para el desarrollo mecánico y eléctrico.
 
-Artículo relacionado con el software de Exoglove:
-- http://138.100.76.10/index.php/SimposiosCEA/article/view/187
+Además de su desarrollo técnico, Exoglove ha tenido un alcance significativo en el ámbito académico y en la transferencia de conocimiento hacia la comunidad científica en robótica y bioingeniería. Como parte de estas acciones de divulgación, el equipo presentó el artículo **_Desarrollo de un exoesqueleto para asistencia y rehabilitación de mano_** en el **Simposio del Comité Español de Automática (CEA)**, dentro de la sección de Bioingeniería del Vol. 2, Núm. 2 (2026). Esta publicación forma parte de las actas oficiales del simposio, un foro de referencia nacional para la presentación de avances en automatización, robótica y tecnologías aplicadas a la salud.
+
+- Artículo relacionado con el software de Exoglove:  
+  http://138.100.76.10/index.php/SimposiosCEA/article/view/187  
+- Página del Comité Español de Automática (CEA):  
+  https://www.ceautomatica.es/
 
 ## Estructura del repositorio
 
@@ -65,16 +69,3 @@ Se recomienda crear un entorno virtual e instalar las dependencias desde [requir
    ```bash
    python3 -m venv exoglove_env
    source exoglove_env/bin/activate
-   ```
-2. Instalar dependencias:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Ejecutar los módulos según la tarea:
-   - control del sistema: scripts en [control/](control/)
-   - visión: scripts en [vision/](vision/)
-   - firmware: cargar los archivos en [arduino_nano/](arduino_nano/)
-
-## Notas
-
-Este repositorio funciona como una base de desarrollo para el prototipo Exoglove, abarcando tanto el software de control como los componentes de percepción y validación del sistema.
